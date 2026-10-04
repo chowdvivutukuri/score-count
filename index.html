@@ -1,0 +1,1520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<title>Card Night Scorepad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,700;1,6..96,500;1,6..96,700&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a private card room at night. One column on deep felt: standings dealt as cards, table talk, a ruled ledger (hands down, players across) with a brass totals rail; sheets rise from the bottom. Committed single dark look. */
+:root {
+  color-scheme: dark;
+  --bg: #08110e;
+  --bg-2: #0f1f19;
+  --paper: #12221c;
+  --paper-2: #182c24;
+  --ink: #f1eadb;
+  --muted: #9aa89f;
+  --rule: rgb(241 234 219 / .08);
+  --rule-strong: rgb(241 234 219 / .2);
+  --felt: #d6b46e;          /* brass: the accent */
+  --felt-ink: #191206;
+  --felt-soft: rgb(214 180 110 / .12);
+  --good: #6fd3a5;
+  --gold: #f0d08a;
+  --gold-soft: rgb(240 208 138 / .12);
+  --danger: #ef8a7c;
+  --danger-soft: rgb(239 138 124 / .12);
+  --shadow: 0 1px 0 rgb(255 255 255 / .04) inset, 0 18px 40px -12px rgb(0 0 0 / .7);
+  --display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 14px;
+  --spring: cubic-bezier(.2, 1.4, .35, 1);
+  --ease: cubic-bezier(.22, 1, .36, 1);
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  background:
+    radial-gradient(120% 70% at 50% -10%, #1d3b30 0%, transparent 60%),
+    radial-gradient(80% 60% at 100% 100%, #10251d 0%, transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--ink); font: 15px/1.5 var(--body); min-height: 100%;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+:focus-visible { outline: 2px solid var(--felt); outline-offset: 2px; }
+::selection { background: var(--felt); color: var(--felt-ink); }
+
+#bgfx, #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#bgfx { z-index: 0; opacity: .55; }
+#fx { z-index: 70; }
+
+.wrap { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 112px; display: flex; flex-direction: column; gap: 18px; }
+
+.top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 11px/1 var(--body); letter-spacing: .28em; text-transform: uppercase; color: var(--felt); }
+.brand svg { width: 18px; height: 18px; }
+.top .spacer { flex: 1; }
+
+.btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--rule-strong); background: rgb(255 255 255 / .03); border-radius: 999px; padding: 9px 16px; font-weight: 600; font-size: 13.5px; letter-spacing: .01em; white-space: nowrap; transition: transform .25s var(--spring), border-color .2s, background .2s; }
+.btn:hover { border-color: var(--felt); background: var(--felt-soft); transform: translateY(-1px); }
+.btn:active { transform: translateY(1px) scale(.97); }
+.btn.primary { background: linear-gradient(180deg, #e7c886, #c59f55); border-color: #e7c886; color: var(--felt-ink); box-shadow: 0 8px 24px -8px rgb(214 180 110 / .6); }
+.btn.primary::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / .55) 50%, transparent 70%); transform: translateX(-120%); transition: transform .7s var(--ease); }
+.btn.primary:hover::after { transform: translateX(120%); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { border-color: var(--rule-strong); background: rgb(255 255 255 / .04); }
+.btn.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+.btn.danger.solid { background: var(--danger); color: #1a0b08; }
+.btn.warn { background: var(--gold); border-color: var(--gold); color: var(--felt-ink); }
+.btn svg { width: 16px; height: 16px; }
+
+.title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.title-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.game-name { font: italic 700 clamp(34px, 7vw, 58px)/1 var(--display); margin: 0; text-wrap: balance; letter-spacing: -.02em;
+  background: linear-gradient(100deg, var(--ink) 0%, var(--ink) 40%, var(--gold) 50%, var(--ink) 60%, var(--ink) 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: sheen 7s var(--ease) infinite; }
+@keyframes sheen { 0% { background-position: 100% 0; } 45%, 100% { background-position: -50% 0; } }
+.game-meta { color: var(--muted); font-size: 13px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: var(--felt-soft); color: var(--felt); font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.chip.gold { background: var(--gold-soft); color: var(--gold); }
+.chip.plain { background: transparent; border: 1px solid var(--rule-strong); color: var(--muted); }
+
+.banner { border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 12px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; color: var(--muted); font-size: 14px; background: rgb(255 255 255 / .03); backdrop-filter: blur(6px); }
+.banner > span, .banner > div { flex: 1; min-width: 200px; }
+.banner.win { border-color: var(--gold); background: linear-gradient(120deg, rgb(240 208 138 / .18), rgb(240 208 138 / .04)); color: var(--ink); animation: glow 2.4s ease-in-out infinite; }
+.banner.win strong { color: var(--gold); font: italic 700 20px var(--display); }
+@keyframes glow { 50% { box-shadow: 0 0 0 1px var(--gold), 0 0 36px -6px rgb(240 208 138 / .5); } }
+
+/* Standings: dealt as cards */
+.standings { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; perspective: 1200px; }
+.stand { position: relative; background: linear-gradient(160deg, var(--paper-2), var(--paper)); border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 14px 14px 12px; display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; min-width: 0; box-shadow: var(--shadow); transform-style: preserve-3d; transition: transform .35s var(--spring), border-color .3s; }
+.stand:hover { transform: translateY(-3px) rotateX(4deg); }
+.stand .rank { grid-row: span 2; font: italic 700 18px/1 var(--display); color: var(--muted); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--rule-strong); }
+.stand .who { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: .01em; }
+.stand .pts { font: 700 28px/1.05 var(--display); font-variant-numeric: lining-nums tabular-nums; }
+.stand .pts small { font: 500 11.5px var(--body); color: var(--muted); margin-left: 6px; letter-spacing: .02em; }
+.stand.lead { border-color: var(--felt); background: linear-gradient(160deg, #2a3a26, var(--paper)); box-shadow: 0 0 0 1px var(--felt) inset, 0 20px 50px -18px rgb(214 180 110 / .45); }
+.stand.lead .rank { background: linear-gradient(180deg, #e7c886, #c59f55); color: var(--felt-ink); border-color: transparent; }
+.stand .crown { position: absolute; top: -13px; right: 12px; font-size: 20px; color: var(--gold); filter: drop-shadow(0 4px 8px rgb(0 0 0 / .5)); animation: bob 3s ease-in-out infinite; }
+.stand .crown.new { animation: crownDrop .9s var(--spring), bob 3s ease-in-out .9s infinite; }
+@keyframes bob { 50% { transform: translateY(-3px) rotate(6deg); } }
+@keyframes crownDrop { from { transform: translateY(-60px) rotate(-180deg) scale(.4); opacity: 0; } }
+.stand .left-tag { font-size: 11px; color: var(--muted); }
+.delta { position: absolute; right: 12px; bottom: 12px; font: 700 15px var(--mono); pointer-events: none; animation: floatUp 1.8s var(--ease) forwards; }
+.delta.up { color: var(--good); } .delta.down { color: var(--danger); }
+@keyframes floatUp { 0% { opacity: 0; transform: translateY(10px) scale(.6); } 20% { opacity: 1; transform: translateY(-6px) scale(1.15); } 100% { opacity: 0; transform: translateY(-46px) scale(1); } }
+.join-tile { border: 1px dashed var(--rule-strong); border-radius: var(--radius); background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 74px; font-weight: 600; transition: all .3s var(--spring); }
+.join-tile:hover { color: var(--felt); border-color: var(--felt); transform: translateY(-3px); }
+.join-tile svg { width: 16px; height: 16px; }
+
+.intro .stand, .intro .join-tile { animation: deal .9s var(--spring) both; animation-delay: calc(var(--i) * 90ms + 150ms); }
+@keyframes deal { from { opacity: 0; transform: translate(-30vw, -40vh) rotate(-35deg) rotateY(180deg) scale(.6); } }
+.intro .game-name { animation: rise 1s var(--ease) both, sheen 7s var(--ease) 1s infinite; }
+.intro .game-meta, .intro .title-actions, .intro .top { animation: rise .9s var(--ease) both .1s; }
+.intro .talk { animation: rise .9s var(--ease) both .55s; }
+.intro .sheet-card { animation: rise 1s var(--ease) both .7s; }
+@keyframes rise { from { opacity: 0; transform: translateY(24px); filter: blur(6px); } }
+
+/* Table talk */
+.talk { position: relative; overflow: hidden; background: rgb(255 255 255 / .025); border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.talk::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 120% at 0% 0%, rgb(214 180 110 / .1), transparent 60%); pointer-events: none; }
+.talk-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.talk-head .label { display: flex; align-items: center; gap: 8px; font: italic 700 20px var(--display); letter-spacing: 0; text-transform: none; color: var(--gold); }
+.talk-head svg { width: 16px; height: 16px; }
+.talk ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.talk li { padding-left: 22px; position: relative; text-wrap: pretty; animation: slideIn .6s var(--ease) both; animation-delay: calc(var(--i) * 120ms); }
+.talk li b { color: var(--gold); font-weight: 700; }
+.talk li::before { content: "♠"; position: absolute; left: 0; top: 0; color: var(--felt); font-size: 13px; line-height: 1.75; }
+.talk li:nth-child(2)::before { content: "♥"; color: var(--danger); }
+.talk li:nth-child(3)::before { content: "♣"; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-18px); clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.talk .quiet { color: var(--muted); }
+
+/* Ledger */
+.sheet-card { background: linear-gradient(180deg, var(--paper-2), var(--paper)); border: 1px solid var(--rule-strong); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.grid-scroll { overflow-x: auto; max-height: 62vh; overflow-y: auto; }
+table.grid { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; }
+.grid th, .grid td { border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); padding: 0; text-align: right; white-space: nowrap; }
+.grid th:last-child, .grid td:last-child { border-right: 0; }
+.grid thead th { position: sticky; top: 0; z-index: 2; background: var(--paper-2); border-bottom: 1px solid var(--rule-strong); font: 700 12px/1.2 var(--body); letter-spacing: .08em; text-transform: uppercase; padding: 12px; min-width: 100px; color: var(--muted); }
+.grid thead th button { background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--ink); max-width: 170px; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.grid thead th button:hover { color: var(--felt); }
+.grid thead th.gone button { color: var(--muted); text-decoration: line-through; }
+.grid .rnd { position: sticky; left: 0; z-index: 1; background: var(--paper-2); text-align: left; font: italic 500 15px var(--display); color: var(--muted); padding: 0 14px; min-width: 56px; width: 56px; }
+.grid thead .rnd { z-index: 3; font: 700 11px var(--body); letter-spacing: .12em; text-transform: uppercase; }
+.grid tbody tr { cursor: pointer; transition: background .2s; }
+.grid tbody tr:hover td { background: var(--felt-soft); }
+.grid tbody td { font: 500 15px/1 var(--mono); padding: 11px 12px; height: 46px; }
+.grid tbody td .d { display: block; font: 500 11px/1.3 var(--body); color: var(--muted); margin-top: 5px; }
+.grid tbody td .d .bad { color: var(--danger); }
+.grid tbody td .d .good { color: var(--good); }
+.grid tbody td.neg { color: var(--danger); }
+.grid tbody td.empty { color: var(--rule-strong); }
+.grid tbody td.best { color: var(--gold); }
+.grid tbody td.pending { color: var(--muted); font-style: italic; font-family: var(--body); font-size: 13px; }
+.grid tbody tr.adj td { background: rgb(214 180 110 / .05); }
+.grid tbody tr.adj td.note-cell { text-align: left; font: italic 500 13px var(--body); color: var(--felt); }
+.grid tbody tr.fresh td { animation: flipIn .7s var(--spring) both; animation-delay: calc(var(--c) * 70ms); }
+@keyframes flipIn { from { opacity: 0; transform: rotateX(-90deg) translateY(-10px); background: var(--felt-soft); } }
+.grid tfoot td { position: sticky; bottom: 0; background: linear-gradient(180deg, #1f3329, #172a22); border-top: 1px solid var(--felt); border-bottom: 0; font: 700 22px/1 var(--display); font-variant-numeric: lining-nums tabular-nums; padding: 14px 12px; }
+.grid tfoot td small { display: block; font: 500 11px var(--body); color: var(--muted); margin-top: 5px; }
+.grid tfoot td small.hot { color: var(--danger); }
+.grid tfoot td.rnd { font: 700 11px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--felt); }
+.grid tfoot td.lead { color: var(--gold); text-shadow: 0 0 18px rgb(240 208 138 / .45); }
+.grid-empty { padding: 30px 16px; text-align: center; color: var(--muted); }
+.grid-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 13px; flex-wrap: wrap; }
+
+.fab { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 15px 26px; font-size: 15.5px; max-width: calc(100% - 32px); animation: pulse 3.2s ease-in-out 2s infinite; }
+.intro .fab { animation: fabIn .9s var(--spring) both .9s, pulse 3.2s ease-in-out 2s infinite; }
+.fab:hover { transform: translateX(-50%) translateY(-2px); }
+.fab:active { transform: translateX(-50%) scale(.96); }
+@keyframes fabIn { from { opacity: 0; transform: translateX(-50%) translateY(80px) scale(.7); } to { transform: translateX(-50%); } }
+@keyframes pulse { 50% { box-shadow: 0 8px 24px -8px rgb(214 180 110 / .6), 0 0 0 10px rgb(214 180 110 / 0), 0 0 0 1px rgb(214 180 110 / .4); } }
+
+/* Sheets */
+.scrim { position: fixed; inset: 0; background: rgb(3 8 6 / .6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 40; display: flex; align-items: flex-end; justify-content: center; animation: fade .3s ease both; }
+@keyframes fade { from { opacity: 0; } }
+@media (min-width: 640px) { .scrim { align-items: center; } }
+.panel { background: linear-gradient(180deg, var(--paper-2), var(--paper)); border: 1px solid var(--rule-strong); width: min(580px, 100%); max-height: 90vh; overflow-y: auto; border-radius: 22px 22px 0 0; padding: 22px 16px calc(20px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 16px; box-shadow: 0 -20px 60px -10px rgb(0 0 0 / .7); animation: sheetUp .55s var(--spring) both; }
+@media (min-width: 640px) { .panel { border-radius: 22px; padding: 26px; animation-name: sheetPop; } }
+@keyframes sheetUp { from { transform: translateY(100%); } }
+@keyframes sheetPop { from { transform: translateY(40px) scale(.92) rotateX(12deg); opacity: 0; } }
+.panel > * { animation: rise .5s var(--ease) both; }
+.panel > *:nth-child(2) { animation-delay: .05s; } .panel > *:nth-child(3) { animation-delay: .1s; } .panel > *:nth-child(4) { animation-delay: .15s; } .panel > *:nth-child(5) { animation-delay: .2s; }
+.panel h2 { font: italic 700 30px/1.1 var(--display); margin: 0; color: var(--ink); }
+.panel h3 { font: italic 700 18px/1.2 var(--display); margin: 4px 0 0; }
+.panel .sub { color: var(--muted); font-size: 14px; margin: -8px 0 0; }
+.panel-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom, 0px)); background: var(--paper); padding-block: 10px; animation: none !important; }
+.panel-actions .left { margin-right: auto; }
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field > span, .label { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.text { border: 1px solid var(--rule-strong); background: rgb(0 0 0 / .25); border-radius: 10px; padding: 11px 12px; width: 100%; min-width: 0; transition: border-color .2s, box-shadow .2s; }
+.text:focus { border-color: var(--felt); outline: none; box-shadow: 0 0 0 4px var(--felt-soft); }
+.text:disabled { opacity: .4; }
+select.text option { background: var(--paper); color: var(--ink); }
+.err { color: var(--danger); font-size: 14px; margin: 0; animation: shake .4s; }
+@keyframes shake { 25% { transform: translateX(-6px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+.note { font-size: 14px; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--gold-soft); border: 1px solid rgb(240 208 138 / .3); color: var(--ink); }
+.note b { color: var(--gold); }
+
+.entry { display: grid; grid-template-columns: 1fr auto 110px; gap: 8px; align-items: center; }
+.entry .nm { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry .nm small { display: block; color: var(--muted); font: 500 12px var(--mono); }
+.entry input { font: 500 20px var(--mono); text-align: right; padding: 8px 12px; }
+.pm { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--rule-strong); background: transparent; font: 500 18px var(--mono); transition: all .25s var(--spring); }
+.pm[aria-pressed="true"] { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); transform: rotate(180deg); }
+.out { height: 44px; border-radius: 10px; border: 1px solid var(--rule-strong); background: transparent; padding: 0 10px; font-size: 13px; font-weight: 700; transition: all .25s var(--spring); }
+.out[aria-pressed="true"] { background: linear-gradient(180deg, #e7c886, #c59f55); color: var(--felt-ink); border-color: transparent; transform: scale(1.05); }
+
+.sp-head, .sp-row { display: grid; grid-template-columns: 1fr 112px 132px; gap: 8px; align-items: center; }
+.sp-head { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.sp-head span:not(:first-child) { text-align: center; }
+.sp-team { font: italic 700 15px var(--display); color: var(--felt); margin-top: 6px; }
+.sp-row .nm { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-row select { font: 500 16px var(--mono); padding: 10px 8px; }
+.step { display: grid; grid-template-columns: 40px 1fr 40px; border: 1px solid var(--rule-strong); border-radius: 10px; overflow: hidden; background: rgb(0 0 0 / .25); }
+.step button { border: 0; background: transparent; font: 500 18px var(--mono); height: 42px; transition: background .2s; }
+.step button:hover { background: var(--felt-soft); }
+.step button:active { background: var(--felt); color: var(--felt-ink); }
+.step input { border: 0; background: transparent; text-align: center; font: 500 18px var(--mono); width: 100%; min-width: 0; padding: 0; }
+.step input:focus { outline: none; }
+.step:focus-within { border-color: var(--felt); box-shadow: 0 0 0 4px var(--felt-soft); }
+.tally { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.tally b { font-family: var(--mono); color: var(--ink); }
+.tally .off b { color: var(--danger); }
+.tally .ok b { color: var(--good); }
+
+.cards { display: flex; flex-wrap: wrap; gap: 6px; }
+.cards button { min-width: 40px; height: 52px; border-radius: 6px; border: 1px solid rgb(0 0 0 / .2); background: linear-gradient(180deg, #f7f1e3, #e6dcc5); color: #1b1b1b; font: 700 16px var(--display); padding: 0 8px; box-shadow: 0 4px 10px -4px rgb(0 0 0 / .6); transition: transform .25s var(--spring); }
+.cards button:nth-child(odd) { color: #a3261c; }
+.cards button:hover { transform: translateY(-5px) rotate(-3deg); }
+.cards button:active { transform: translateY(2px) scale(.94); }
+.cards button small { display: block; font: 500 10px var(--body); color: #6b6455; }
+.cards .clr { background: transparent; color: var(--danger) !important; border-color: var(--danger); box-shadow: none; font-family: var(--body); font-size: 13px; }
+
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { border: 1px solid var(--rule-strong); background: transparent; border-radius: 999px; padding: 7px 13px; font-size: 13.5px; font-weight: 600; transition: all .25s var(--spring); }
+.seg button[aria-pressed="true"] { background: var(--felt); color: var(--felt-ink); border-color: var(--felt); }
+.types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.types button { border: 1px solid var(--rule-strong); background: rgb(255 255 255 / .02); border-radius: var(--radius); padding: 14px 12px; text-align: left; display: flex; flex-direction: column; gap: 3px; min-width: 0; transition: all .35s var(--spring); }
+.types button:hover { transform: translateY(-3px) rotate(-1deg); border-color: var(--felt); }
+.types button strong { font: italic 700 19px var(--display); }
+.types button span { font-size: 12px; color: var(--muted); }
+.types button .suit { font-size: 24px; line-height: 1; color: var(--felt); transition: transform .5s var(--spring); }
+.types button[aria-pressed="true"] { border-color: var(--felt); box-shadow: inset 0 0 0 1px var(--felt), 0 12px 30px -12px rgb(214 180 110 / .5); background: var(--felt-soft); }
+.types button[aria-pressed="true"] .suit { transform: rotate(360deg) scale(1.2); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 440px) { .row2 { grid-template-columns: 1fr; } .types { grid-template-columns: 1fr; } .types button { flex-direction: row; align-items: center; gap: 10px; } }
+.check { display: flex; align-items: center; gap: 10px; font-size: 14.5px; }
+.check input { width: 20px; height: 20px; accent-color: var(--felt); flex: none; }
+.radio-list { display: flex; flex-direction: column; gap: 6px; }
+.radio-list label { display: flex; gap: 10px; align-items: center; border: 1px solid var(--rule-strong); border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: border-color .2s, background .2s; }
+.radio-list label:has(input:checked) { border-color: var(--felt); background: var(--felt-soft); }
+.radio-list input { accent-color: var(--felt); width: 18px; height: 18px; flex: none; }
+.radio-list .rl-text { flex: 1; min-width: 0; }
+.radio-list small { display: block; color: var(--muted); font-size: 12.5px; }
+.radio-list b { font-family: var(--mono); font-weight: 500; color: var(--gold); }
+
+.plist { display: flex; flex-direction: column; gap: 6px; }
+.plist .p { display: flex; gap: 6px; align-items: center; animation: rise .4s var(--ease) both; }
+.plist .seat { font: italic 500 15px var(--display); color: var(--muted); width: 22px; flex: none; text-align: center; }
+.icon-btn { width: 40px; height: 40px; flex: none; border-radius: 10px; border: 1px solid var(--rule); background: transparent; color: var(--muted); display: grid; place-items: center; transition: all .25s var(--spring); }
+.icon-btn:hover { color: var(--danger); border-color: var(--danger); transform: rotate(90deg); }
+.icon-btn svg { width: 16px; height: 16px; }
+
+.glist { display: flex; flex-direction: column; border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
+.g { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid var(--rule); transition: background .2s; }
+.g:hover { background: rgb(255 255 255 / .03); }
+.g:last-child { border-bottom: 0; }
+.g.current { background: var(--felt-soft); }
+.g .info { flex: 1; min-width: 0; background: none; border: 0; text-align: left; padding: 0; }
+.g .info strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: italic 700 17px var(--display); }
+.g .info span { color: var(--muted); font-size: 13px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.confirm { display: flex; gap: 8px; align-items: center; background: var(--danger-soft); border-radius: 10px; padding: 8px 10px; color: var(--danger); font-size: 14px; flex-wrap: wrap; flex: 1; }
+.confirm span { flex: 1; min-width: 140px; }
+
+.rules { display: flex; flex-direction: column; gap: 12px; }
+.rules ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.rules li::marker { color: var(--felt); }
+.rules table { border-collapse: collapse; font-size: 14px; width: 100%; }
+.rules td { border-bottom: 1px solid var(--rule); padding: 8px 4px; }
+.rules td:last-child { text-align: right; font-family: var(--mono); color: var(--gold); white-space: nowrap; }
+.rules p { margin: 0; }
+
+.toast { position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); background: linear-gradient(180deg, #e7c886, #c59f55); color: var(--felt-ink); font-weight: 700; padding: 9px 18px; border-radius: 999px; font-size: 14px; z-index: 80; max-width: calc(100% - 32px); text-align: center; box-shadow: 0 12px 30px -10px rgb(0 0 0 / .7); animation: toastIn .5s var(--spring); }
+@keyframes toastIn { from { transform: translate(-50%, -40px) scale(.8); opacity: 0; } }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }
+  #bgfx { display: none; }
+}
+
+/* Avatars, status chips, hall of fame */
+.av { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 17px; line-height: 1; flex: none; background: var(--av, #2b3d33); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); }
+.av.lg { width: 40px; height: 40px; font-size: 22px; }
+.av.sm { width: 22px; height: 22px; font-size: 13px; }
+button.av { border: 0; cursor: pointer; transition: transform .3s var(--spring); }
+button.av:hover { transform: scale(1.15) rotate(-8deg); }
+.stand { grid-template-columns: auto 1fr auto; }
+.stand .rank { grid-row: auto; grid-column: 3; grid-row-start: 1; width: 28px; height: 28px; font-size: 15px; }
+.stand .av { grid-row: span 2; }
+.stand .who { grid-column: 2; }
+.stand .pts { grid-column: 2 / span 2; }
+.th-in { display: inline-flex; align-items: center; gap: 6px; }
+.status { display: flex; flex-wrap: wrap; gap: 5px; }
+.status button { border: 1px solid var(--rule-strong); background: transparent; border-radius: 999px; padding: 5px 10px; font-size: 12.5px; font-weight: 700; transition: all .25s var(--spring); }
+.status button[aria-pressed="true"] { background: var(--felt); color: var(--felt-ink); border-color: var(--felt); transform: scale(1.04); }
+.status button[data-s="won"][aria-pressed="true"] { background: var(--good); border-color: var(--good); color: #062016; }
+.status button[data-s="wrong"][aria-pressed="true"] { background: var(--danger); border-color: var(--danger); color: #1a0b08; }
+.ir-row { display: grid; grid-template-columns: auto 1fr 96px; gap: 6px 10px; align-items: center; padding-block: 10px; border-bottom: 1px solid var(--rule); }
+.ir-row:last-child { border-bottom: 0; }
+.ir-row .nm { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ir-row .nm small { display: block; font: 500 12px var(--mono); color: var(--muted); }
+.ir-row .status { grid-column: 1 / -1; }
+.ir-row input { font: 500 20px var(--mono); text-align: right; padding: 8px 10px; }
+.ir-row.focus { background: linear-gradient(90deg, var(--felt-soft), transparent); border-radius: 10px; }
+.sp-row { grid-template-columns: auto 1fr 104px 128px; }
+.sp-head { grid-template-columns: 30px 1fr 104px 128px; }
+.bt-row { display: grid; grid-template-columns: auto 1fr 132px 132px; grid-template-areas: "av nm bid tk"; gap: 6px 10px; align-items: end; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.bt-row:last-child { border-bottom: 0; }
+.bt-row.bids-only { grid-template-columns: auto 1fr 132px; grid-template-areas: "av nm bid"; }
+.bt-row > .av { grid-area: av; align-self: center; }
+.bt-row .nm { grid-area: nm; align-self: center; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-row .nm small { display: block; font: 500 12px var(--mono); color: var(--muted); }
+.bt-row .bid { grid-area: bid; } .bt-row .tk { grid-area: tk; }
+.bt-row .cell small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px 2px; }
+.bt-row .res { font: 600 12px var(--mono); margin-left: 6px; letter-spacing: 0; text-transform: none; }
+.bt-row .res.good { color: var(--good); } .bt-row .res.bad { color: var(--danger); }
+@media (max-width: 480px) { .bt-row:not(.bids-only) { grid-template-columns: auto 1fr 1fr; grid-template-areas: "av nm nm" ". bid tk"; } }
+.top-pick { display: grid; grid-template-columns: 1fr 132px; gap: 12px; align-items: center; margin-top: 10px; }
+.tp-label { font-size: 14px; font-weight: 700; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.tp-label small { display: block; font-weight: 500; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.panel h2 .of { font: 500 15px var(--body); color: var(--muted); font-style: normal; margin-left: 4px; }
+.ro { border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 10px 14px; color: var(--muted); font-size: 14px; }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--muted); cursor: pointer; background: none; border: 0; padding: 4px 0; }
+.switch .track { width: 34px; height: 20px; border-radius: 999px; background: var(--rule-strong); position: relative; transition: background .25s; }
+.switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); transition: transform .3s var(--spring); }
+.switch[aria-pressed="true"] .track { background: var(--felt); }
+.switch[aria-pressed="true"] .track::after { transform: translateX(14px); background: var(--felt-ink); }
+.talk-tools { display: flex; align-items: center; gap: 8px; }
+.icon-toggle { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--rule-strong); background: transparent; display: grid; place-items: center; color: var(--muted); transition: all .25s var(--spring); }
+.icon-toggle:hover { color: var(--felt); border-color: var(--felt); }
+.icon-toggle svg { width: 17px; height: 17px; }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.live i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.live.on { color: var(--good); }
+.live.on i { background: var(--good); box-shadow: 0 0 0 0 rgb(111 211 165 / .6); animation: ping 2s infinite; }
+@keyframes ping { 70% { box-shadow: 0 0 0 8px rgb(111 211 165 / 0); } 100% { box-shadow: 0 0 0 0 rgb(111 211 165 / 0); } }
+.awards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.award { border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 12px 14px; background: linear-gradient(160deg, var(--paper-2), var(--paper)); display: flex; flex-direction: column; gap: 6px; animation: deal .8s var(--spring) both; animation-delay: calc(var(--i) * 80ms); min-width: 0; }
+.award .t { font: italic 700 18px var(--display); color: var(--gold); }
+.award .w { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.award p { margin: 0; font-size: 13px; color: var(--muted); }
+.lb { width: 100%; border-collapse: collapse; font-size: 14px; }
+.lb th { text-align: right; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--rule-strong); }
+.lb th:first-child, .lb td:first-child { text-align: left; }
+.lb td { padding: 8px; border-bottom: 1px solid var(--rule); text-align: right; font-family: var(--mono); }
+.lb td:first-child { font-family: var(--body); font-weight: 700; }
+.lb .nm { display: inline-flex; align-items: center; gap: 8px; }
+.lb-wrap { overflow-x: auto; }
+.split-preview { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.split-preview div { display: flex; justify-content: space-between; gap: 8px; }
+.split-preview b { font-family: var(--mono); color: var(--gold); font-weight: 500; }
+.rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 440px) { .rules-grid { grid-template-columns: 1fr; } .sp-row, .sp-head { grid-template-columns: auto 1fr 92px 118px; } .sp-head { grid-template-columns: 22px 1fr 92px 118px; } }
+
+/* Phone polish */
+.btn .lbl { display: inline; }
+.stand .pts small { display: block; margin: 2px 0 0; }
+.talk-head .label { white-space: nowrap; }
+.talk-tools { flex-wrap: wrap; justify-content: flex-end; }
+.status button { padding: 4px 9px; font-size: 12px; }
+.kp-sticky { position: sticky; bottom: 58px; z-index: 2; background: var(--paper); padding-block: 10px 4px; border-top: 1px solid var(--rule); animation: none !important; }
+.kp-sticky .cards button { min-width: 34px; height: 44px; padding: 0 6px; font-size: 15px; }
+@media (max-width: 560px) {
+  .top { flex-wrap: nowrap; }
+  .top .btn { padding: 9px 11px; }
+  .top .btn .lbl, .top .btn .chip { display: none; }
+  .brand { letter-spacing: .18em; font-size: 10px; min-width: 0; }
+  .brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .title-actions { width: 100%; gap: 6px; }
+  .title-actions .btn { padding: 7px 12px; font-size: 13px; border-color: var(--rule-strong); }
+  .standings { grid-template-columns: 1fr 1fr; }
+  .stand { padding: 12px 10px 10px; column-gap: 9px; }
+  .stand .av.lg { width: 34px; height: 34px; font-size: 19px; }
+  .stand .pts { font-size: 25px; }
+  .join-tile { min-height: 60px; }
+}
+</style>
+
+<canvas id="bgfx" aria-hidden="true"></canvas>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="wrap" id="app"></div>
+<div id="layer"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ================= Game knowledge ================= */
+const TYPES = {
+  spades: { name: "Spades", suit: "♠", blurb: "Bid, then count tricks", lowWins: false },
+  rummy: { name: "Rummy", suit: "♦", blurb: "Lowest total wins", lowWins: true },
+  custom: { name: "Other game", suit: "♣", blurb: "Name it yourself", lowWins: false },
+};
+const AVATARS = ["🦊", "🐯", "🦁", "🐼", "🐸", "🐙", "🦄", "🐲", "🦉", "🐺", "🐻", "🐵", "🦈", "🐝", "🦖", "🐧", "🦩", "🐢", "🦔", "🐳"];
+const AV_COLORS = ["#3b2f4a", "#2f3f4a", "#4a3a2a", "#2a4a3a", "#4a2a33", "#33402a", "#2a3550", "#4a442a"];
+
+const KEY = "card-night-scorepad-v4";
+const CUR_KEY = "card-night-current";
+const SOUND_KEY = "card-night-sound";
+const uid = () => Math.random().toString(36).slice(2, 10);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => (n < 0 ? "−" : "") + Math.abs(Math.round(n)).toLocaleString();
+const signed = n => (n > 0 ? "+" : "") + fmt(n);
+const blank = v => v === null || v === undefined || v === "";
+const hash = s => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const ICON = {
+  cards: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="11" height="15" rx="2"/><path d="M10 4.2 17.6 2.6a2 2 0 0 1 2.4 1.5l2.4 11.3a2 2 0 0 1-1.5 2.4L17 18.6"/></svg>',
+  list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  shuffle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>',
+  join: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M19 8v6M16 11h6"/></svg>',
+  leave: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 11h6"/></svg>',
+  soundOn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>',
+  soundOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5zM22 9l-6 6M16 9l6 6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+};
+
+/* ================= Example + storage ================= */
+function newPlayer(name, i) { return { id: uid(), name, avatar: AVATARS[hash(name + i) % AVATARS.length], color: AV_COLORS[hash(name) % AV_COLORS.length] }; }
+function sampleGame() {
+  const players = ["Ana", "Ben", "Cleo", "Dev"].map(newPlayer);
+  const hands = [[[1, 1], [0, 0], [1, 0], [0, 0]], [[1, 1], [1, 0], [0, 0], [1, 1]], [[2, 1], [1, 1], [1, 1], [0, 0]], [[2, 2], [1, 2], [1, 0], [1, 0]], [[2, 2], [2, 1], [1, 1], [1, 1]]];
+  const pick = (h, k) => Object.fromEntries(players.map((p, i) => [p.id, h[i][k]]));
+  return {
+    id: uid(), v: 4, type: "spades", name: "Spades (example)", rules: { lowWins: false, top: 8 }, tone: "savage",
+    example: true, created: Date.now(), players,
+    rounds: hands.map(h => ({ id: uid(), bids: pick(h, 0), tricks: pick(h, 1) })),
+  };
+}
+function loadLocal() {
+  try { const s = JSON.parse(lsGet(KEY) || lsGet("card-night-scorepad-v3")); if (s && Array.isArray(s.games) && s.games.length) return s.games.map(migrate); } catch (e) {}
+  return [sampleGame()];
+}
+const state = { games: window.claude?.hot?.data?.games || loadLocal(), currentId: lsGet(CUR_KEY) };
+window.claude?.hot?.snapshot?.(() => ({ games: state.games }));
+const cur = () => state.games.find(g => g.id === state.currentId) || state.games[0];
+function saveLocal() { lsSet(KEY, JSON.stringify({ games: state.games })); lsSet(CUR_KEY, state.currentId || ""); }
+
+/* ================= Live sync (db capability) ================= */
+const sync = { col: null, live: false, readOnly: false, first: true, queue: {} };
+function persist(g) {
+  if (g) g.updated = Date.now();
+  saveLocal();
+  if (!g || !sync.col || sync.readOnly || g.example) return;
+  const body = JSON.parse(JSON.stringify(g));
+  const run = async () => {
+    try { await sync.col.doc(g.id).set(body); }
+    catch (e) {
+      if (e && (e.code === "invalid_argument" || e.code === "not_granted")) { sync.readOnly = true; toast("You're watching live. Only people with edit access can change scores."); render(); }
+      else if (e && e.code === "quota_exceeded") toast("Storage is full. Delete some old games to keep saving.");
+    }
+  };
+  sync.queue[g.id] = (sync.queue[g.id] || Promise.resolve()).then(run);
+}
+function removeRemote(id) { if (sync.col && !sync.readOnly) sync.col.doc(id).delete().catch(() => {}); }
+(async () => {
+  if (!window.claude?.use) return;
+  let db = null;
+  try { db = await window.claude.use("db"); } catch (e) {}
+  if (!db) return;
+  try { const user = await window.claude.use("user"); if (user && user.can && (await user.can("data.write")) === false) sync.readOnly = true; } catch (e) {}
+  sync.col = db.collection("games");
+  sync.col.onSnapshot(snap => {
+    sync.live = true;
+    const remote = snap.docs.filter(d => d.exists).map(d => migrate(JSON.parse(JSON.stringify(d.data()))));
+    if (sync.first) {
+      sync.first = false;
+      const local = state.games.filter(g => !g.example && !remote.some(r => r.id === g.id));
+      local.forEach(g => persist(g));
+      if (!remote.length && !local.length) { render(); return; }
+      if (!remote.length) { render(); return; }
+      state.games = [...remote, ...local];
+    } else {
+      state.games = remote.length ? remote : [sampleGame()];
+    }
+    state.games.sort((a, b) => b.created - a.created);
+    saveLocal(); render();
+  }, () => { sync.live = false; render(); });
+})();
+
+/* ================= Engine ================= */
+const lowWins = g => g.rules && g.rules.lowWins !== undefined ? !!g.rules.lowWins : TYPES[g.type]?.lowWins || false;
+const rowIndex = (g, id) => id ? g.rounds.findIndex(r => r.id === id) : -1;
+function activeAt(g, pid, idx) {
+  const p = g.players.find(x => x.id === pid); if (!p) return false;
+  const ji = rowIndex(g, p.joinRow);
+  let li = rowIndex(g, p.leftRow); if (li < 0) li = Infinity;
+  return idx > ji && idx < li;
+}
+const playersAt = (g, idx) => g.players.filter(p => activeAt(g, p.id, idx));
+const isGone = (g, p) => rowIndex(g, p.leftRow) >= 0;
+const activePlayers = g => g.players.filter(p => !isGone(g, p));
+
+// Games saved by the earlier rules-based version: turn bids/tricks and rummy results into plain points.
+function migrate(g) {
+  if (!g) return g;
+  (g.players || []).forEach((p, i) => { if (!p.avatar) p.avatar = AVATARS[hash(p.name + i) % AVATARS.length]; if (!p.color) p.color = AV_COLORS[hash(p.name) % AV_COLORS.length]; });
+  if (g.v === 4) return g;
+  const old = g.rules || {};
+  g.rounds = (g.rounds || []).filter(r => !(r.bids && !r.tricks)).map(r => {
+    if (r.kind === "adjust" || r.scores) return r;
+    const scores = {};
+    if (r.bids) Object.keys(r.bids).forEach(pid => {
+      const b = r.bids[pid], t = Number(r.tricks[pid]) || 0;
+      if (b === "nil" || b === "bnil") { const v = b === "nil" ? (old.nil ?? 100) : (old.blindNil ?? 200); scores[pid] = t === 0 ? v : -v; }
+      else scores[pid] = t >= b ? b * 10 + (t - b) : -b * 10;
+    });
+    if (r.res) Object.keys(r.res).forEach(pid => {
+      const x = r.res[pid];
+      scores[pid] = x.s === "won" ? 0 : x.s === "drop" ? (old.drop ?? 20) : x.s === "mid" ? (old.midDrop ?? 40) : x.s === "wrong" ? (old.wrongShow ?? 80) : Math.min(old.maxPts ?? 80, Number(x.pts) || 0);
+    });
+    return { id: r.id, scores };
+  });
+  g.rules = { lowWins: old.lowWins !== undefined ? !!old.lowWins : !!TYPES[g.type]?.lowWins };
+  g.v = 4;
+  return g;
+}
+
+// Spades: bid 1 to 10. Make it (or better) and score 10 per trick bid plus 1 per extra trick; fall short and lose 10 per trick bid.
+// Bid 0 is nil: no 10s either way, just 1 point per trick won.
+const MAX_BID = 10;
+const pendingRound = r => r.kind !== "adjust" && r.bids && !r.tricks;
+// Cards go up 1, 2 … top, the top hand is dealt twice, then back down … 2, 1. So top 8 is 16 hands.
+const DEFAULT_TOP = 8;
+const topHand = g => g.rules?.top || DEFAULT_TOP;
+const totalHands = g => topHand(g) * 2;
+const cardsForHand = (g, handNo, players) => {
+  const top = topHand(g), k = handNo <= top ? handNo : 2 * top + 1 - handNo;
+  return Math.max(1, Math.min(k, Math.floor(52 / Math.max(1, players))));
+};
+const madeBid = (bid, won) => won >= bid;
+const spadesPts = (bid, won) => bid === 0 ? won : won >= bid ? bid * 10 + (won - bid) : -bid * 10;
+
+function compute(g) {
+  const P = g.players;
+  const totals = Object.fromEntries(P.map(p => [p.id, 0]));
+  let hand = 0;
+  const rows = g.rounds.map((round, idx) => {
+    const cells = {};
+    const adj = round.kind === "adjust";
+    const pending = pendingRound(round);
+    if (!adj) hand++;
+    P.forEach(p => {
+      if (!adj && !activeAt(g, p.id, idx)) { cells[p.id] = { inactive: true, pts: 0 }; return; }
+      if (round.bids) {
+        const bid = round.bids[p.id];
+        if (bid === undefined) { cells[p.id] = { inactive: true, pts: 0 }; return; }
+        if (pending) { cells[p.id] = { pending: true, bid, pts: 0 }; return; }
+        const won = Number(round.tricks[p.id]) || 0, pts = spadesPts(bid, won);
+        totals[p.id] += pts;
+        cells[p.id] = { pts, bid, won, made: madeBid(bid, won) };
+        return;
+      }
+      const v = round.scores ? round.scores[p.id] : undefined;
+      const pts = Number(v) || 0;
+      totals[p.id] += pts;
+      cells[p.id] = { pts, empty: blank(v), label: adj ? round.labels?.[p.id] || "" : "" };
+    });
+    return adj ? { id: round.id, cells, adj: true, note: round.note } : { id: round.id, cells, hand, pending };
+  });
+  const handCount = rows.filter(r => !r.adj && !r.pending).length;
+  return { rows, totals, handCount, anyScore: rows.some(r => !r.pending) };
+}
+function ranking(g, c) {
+  const lw = lowWins(g);
+  return activePlayers(g).map(p => ({ ...p, total: c.totals[p.id] })).sort((a, b) => lw ? a.total - b.total : b.total - a.total);
+}
+function winner(g, c) {
+  const r = ranking(g, c);
+  if (!g.ended || r.length < 2 || !c.anyScore) return null;
+  if (r[0].total === r[1].total) return { tie: true, reason: `Tied on ${fmt(r[0].total)}. Play one more to settle it.` };
+  return { player: r[0], reason: "Game over." };
+}
+/* ================= Table talk ================= */
+function tableTalk(g, c) {
+  const S = g.tone !== "clean";
+  const L = [];
+  const nm = id => `<b>${esc(g.players.find(p => p.id === id)?.name || "?")}</b>`;
+  const r = ranking(g, c);
+  const rows = c.rows.filter(x => !x.adj && !x.pending);
+  if (r.length < 2 || !c.anyScore) return L;
+  const lw = lowWins(g);
+  const better = (a, b) => lw ? a < b : a > b;
+  const gap = Math.abs(r[0].total - r[1].total);
+  const last = r[r.length - 1];
+  const live = row => Object.entries(row.cells).filter(([, x]) => !x.inactive && !x.empty).map(([id, x]) => ({ id, pts: x.pts }));
+
+  if (gap > 0) L.push(S ? `${nm(r[0].id)} is ${fmt(gap)} points clear of ${nm(r[1].id)}. ${nm(r[1].id)}, what the hell are you doing?`
+    : `${nm(r[0].id)} leads ${nm(r[1].id)} by ${fmt(gap)}. Plenty of game left.`);
+  else L.push(S ? `${nm(r[0].id)} and ${nm(r[1].id)} are tied on ${fmt(r[0].total)}. Somebody do something, for fuck's sake.`
+    : `${nm(r[0].id)} and ${nm(r[1].id)} are dead level on ${fmt(r[0].total)}. Tense.`);
+  if (r.length > 2) L.push(S ? `${nm(last.id)} is in last place. Not great, not terrible. Actually, pretty fucking terrible.`
+    : `${nm(last.id)} is bringing up the rear. There's still time.`);
+
+  const handBest = rows.map(row => {
+    const vals = live(row);
+    if (vals.length < 2) return null;
+    const top = vals.reduce((a, b) => better(b.pts, a.pts) ? b : a);
+    return vals.filter(v => v.pts === top.pts).length > 1 ? null : top.id;
+  });
+  let streak = 0;
+  for (let i = handBest.length - 1; i >= 0 && handBest[i] && handBest[i] === handBest[handBest.length - 1]; i--) streak++;
+  if (streak >= 3) L.push(S ? `${nm(handBest[handBest.length - 1])} has won ${streak} hands in a row. Either they're cheating or the rest of you suck.`
+    : `${nm(handBest[handBest.length - 1])} has won ${streak} hands in a row. Someone check the deck.`);
+
+  if (rows.length >= 2) {
+    let big = null, bad = null;
+    rows.forEach(row => live(row).forEach(v => {
+      const good = lw ? -v.pts : v.pts;
+      if (!big || good > big.good) big = { ...v, good, hand: row.hand };
+      if (!bad || good < bad.good) bad = { ...v, good, hand: row.hand };
+    }));
+    if (!lw && big && big.id !== last.id && big.pts > last.total && big.pts > 0)
+      L.push(S ? `${nm(big.id)} scored more in hand ${big.hand} alone (${fmt(big.pts)}) than ${nm(last.id)} has all damn game (${fmt(last.total)}).`
+        : `${nm(big.id)} scored more in hand ${big.hand} alone (${fmt(big.pts)}) than ${nm(last.id)} has all game (${fmt(last.total)}).`);
+    if (bad && bad.id !== big?.id && (lw ? bad.pts > 0 : bad.pts < 0))
+      L.push(S ? `${nm(bad.id)} took ${fmt(bad.pts)} in hand ${bad.hand}. Holy shit, what a disaster.` : `${nm(bad.id)} took ${fmt(bad.pts)} in hand ${bad.hand}. Ouch.`);
+    if (lw && big && big.pts === 0) L.push(S ? `${nm(big.id)} got a clean zero in hand ${big.hand}. Smug little shit.` : `${nm(big.id)} got a clean zero in hand ${big.hand}. Nice.`);
+  }
+
+  if (S && r.length >= 2) {
+    const wins = Object.fromEntries(r.map(p => [p.id, handBest.filter(x => x === p.id).length]));
+    const zero = r.find(p => !wins[p.id] && rows.length >= 4);
+    if (zero) L.push(`${nm(zero.id)} hasn't won a single hand in ${rows.length}. Are you even fucking playing?`);
+  } else if (rows.length >= 4) {
+    const wins = Object.fromEntries(r.map(p => [p.id, handBest.filter(x => x === p.id).length]));
+    const zero = r.find(p => !wins[p.id]);
+    if (zero) L.push(`${nm(zero.id)} hasn't won a hand yet in ${rows.length}. Their turn is coming.`);
+  }
+
+  if (r.length === 2 && rows.length >= 4) {
+    const [a, b] = r;
+    const aw = handBest.filter(x => x === a.id).length, bw = handBest.filter(x => x === b.id).length;
+    if (aw !== bw && Math.max(aw, bw) / rows.length >= .7) {
+      const [w, l, n] = aw > bw ? [a, b, aw] : [b, a, bw];
+      L.push(S ? `${nm(w.id)} took ${n} of ${rows.length} hands off ${nm(l.id)}. That's not a rivalry, that's an ass-kicking.` : `${nm(w.id)} took ${n} of ${rows.length} hands off ${nm(l.id)}.`);
+    }
+  }
+
+  if (rows.length >= 4 && gap > 0) {
+    const run = Object.fromEntries(g.players.map(p => [p.id, 0]));
+    let lastAfter2 = null, seen = 0;
+    for (const row of c.rows) {
+      Object.entries(row.cells).forEach(([id, x]) => run[id] += x.pts);
+      if (!row.adj && !row.pending && ++seen === 2) lastAfter2 = activePlayers(g).sort((a, b) => lw ? run[b.id] - run[a.id] : run[a.id] - run[b.id])[0]?.id;
+    }
+    if (lastAfter2 === r[0].id) L.push(S ? `${nm(r[0].id)} was dead last after two hands and is now on top. Never count out a stubborn ass.`
+      : `${nm(r[0].id)} was last after two hands and is now on top. Never count them out.`);
+  }
+
+  g.rounds.forEach(rd => {
+    if (rd.kind !== "adjust") return;
+    if (rd.join) {
+      const j = g.players.find(p => p.id === rd.join);
+      const beaten = j && r.find(p => p.id !== j.id && better(c.totals[j.id], p.total));
+      if (beaten && !isGone(g, j)) L.push(S ? `${nm(j.id)} showed up late and is already beating ${nm(beaten.id)}. Embarrassing.` : `${nm(j.id)} joined late and has already passed ${nm(beaten.id)}.`);
+    }
+    if (rd.leave) {
+      const amt = Math.abs(Number(rd.scores[rd.leave]) || 0);
+      L.push(S ? `${nm(rd.leave)} bailed and handed out ${fmt(amt)} points. Thanks for the charity, quitter.` : `${nm(rd.leave)} left and their ${fmt(amt)} points were shared out.`);
+    }
+  });
+  return L;
+}
+let talkOffset = 0;
+
+/* ================= Sound ================= */
+const sound = {
+  on: lsGet(SOUND_KEY) !== "off", ctx: null,
+  ac() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (this.ctx.state === "suspended") this.ctx.resume(); return this.ctx; },
+  tone(freq, start, dur, type = "sine", vol = .12, slideTo) {
+    const a = this.ac(); if (!a) return;
+    const o = a.createOscillator(), gn = a.createGain(), t = a.currentTime + start;
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(vol, t + .01); gn.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(gn).connect(a.destination); o.start(t); o.stop(t + dur + .05);
+  },
+  play(kind) {
+    if (!this.on) return;
+    if (kind === "chip") { this.tone(1800, 0, .06, "triangle", .08); this.tone(2400, .05, .08, "triangle", .06); }
+    if (kind === "lead") { this.tone(440, 0, .35, "sine", .1, 880); this.tone(660, .08, .3, "sine", .06, 1320); }
+    if (kind === "sad") { this.tone(392, 0, .25, "sawtooth", .05, 370); this.tone(370, .25, .25, "sawtooth", .05, 349); this.tone(349, .5, .6, "sawtooth", .05, 260); }
+    if (kind === "win") [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(f, i * .12, i === 5 ? .7 : .2, "triangle", .1));
+    if (kind === "tap") this.tone(900, 0, .04, "sine", .05);
+  },
+};
+
+/* ================= Visual FX ================= */
+const fx = (() => {
+  const bg = document.getElementById("bgfx"), fg = document.getElementById("fx");
+  const bctx = bg.getContext("2d"), fctx = fg.getContext("2d");
+  let W = 0, H = 0, dpr = 1;
+  const suits = ["♠", "♥", "♦", "♣"];
+  const drift = Array.from({ length: 16 }, (_, i) => ({ x: Math.random(), y: Math.random(), s: 18 + Math.random() * 46, r: Math.random() * 6, vr: (Math.random() - .5) * .002, vy: .00006 + Math.random() * .00012, suit: suits[i % 4], a: .04 + Math.random() * .07 }));
+  let parts = [];
+  function size() {
+    dpr = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+    [bg, fg].forEach(c => { c.width = W * dpr; c.height = H * dpr; });
+    bctx.setTransform(dpr, 0, 0, dpr, 0, 0); fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  size(); addEventListener("resize", size);
+  function frame() {
+    if (!document.hidden && !reduced) {
+      bctx.clearRect(0, 0, W, H);
+      drift.forEach(d => {
+        d.y -= d.vy; d.r += d.vr; if (d.y < -.1) { d.y = 1.1; d.x = Math.random(); }
+        bctx.save(); bctx.translate(d.x * W, d.y * H); bctx.rotate(d.r);
+        bctx.globalAlpha = d.a; bctx.fillStyle = d.suit === "♥" || d.suit === "♦" ? "#ef8a7c" : "#d6b46e";
+        bctx.font = `${d.s}px Georgia, serif`; bctx.textAlign = "center"; bctx.fillText(d.suit, 0, 0); bctx.restore();
+      });
+    }
+    if (parts.length) {
+      fctx.clearRect(0, 0, W, H);
+      parts = parts.filter(p => p.life > 0);
+      parts.forEach(p => {
+        p.vy += p.g; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= 1;
+        fctx.save(); fctx.translate(p.x, p.y); fctx.rotate(p.rot); fctx.globalAlpha = Math.min(1, p.life / 40);
+        fctx.fillStyle = p.c;
+        if (p.glyph) { fctx.font = `${p.s}px Georgia, serif`; fctx.textAlign = "center"; fctx.fillText(p.glyph, 0, p.s / 3); }
+        else { fctx.scale(1, Math.cos(p.rot * 3)); fctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); }
+        fctx.restore();
+      });
+      if (!parts.length) fctx.clearRect(0, 0, W, H);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  const COLORS = ["#f0d08a", "#d6b46e", "#f1eadb", "#ef8a7c", "#6fd3a5"];
+  return {
+    burst(x, y, n = 40, power = 9) {
+      if (reduced) return;
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, v = power * (.35 + Math.random() * .8);
+        const glyph = Math.random() < .45 ? suits[i % 4] : null;
+        parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - power * .4, g: .22, rot: Math.random() * 6, vr: (Math.random() - .5) * .3, s: glyph ? 14 + Math.random() * 16 : 6 + Math.random() * 7, c: glyph ? (glyph === "♥" || glyph === "♦" ? "#ef8a7c" : "#f0d08a") : COLORS[i % COLORS.length], glyph, life: 90 + Math.random() * 60 });
+      }
+    },
+    celebrate() {
+      if (reduced) return;
+      let k = 0;
+      const t = setInterval(() => { fx.burst(W * (.15 + Math.random() * .7), H * (.15 + Math.random() * .35), 70, 12); if (++k >= 5) clearInterval(t); }, 260);
+      for (let i = 0; i < 120; i++) parts.push({ x: Math.random() * W, y: -20 - Math.random() * H * .5, vx: (Math.random() - .5) * 2, vy: 2 + Math.random() * 3, g: .04, rot: Math.random() * 6, vr: (Math.random() - .5) * .2, s: 8 + Math.random() * 8, c: COLORS[i % COLORS.length], glyph: i % 5 === 0 ? suits[i % 4] : null, life: 260 });
+    },
+  };
+})();
+function countUp(el, from, to, dur = 900) {
+  if (reduced || from === to) { el.textContent = fmt(to); return; }
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 4);
+    el.textContent = fmt(from + (to - from) * e);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.hidden = false;
+  t.style.animation = "none"; void t.offsetWidth; t.style.animation = "";
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2400);
+}
+const avatar = (p, cls = "") => `<span class="av ${cls}" style="--av:${p.color || "#2b3d33"}" aria-hidden="true">${p.avatar || "🃏"}</span>`;
+
+/* ================= Main view ================= */
+const view = { first: true, gameId: null, totals: {}, rowCount: 0, leader: null, winKey: null };
+function render() {
+  const app = document.getElementById("app");
+  const g = cur();
+  state.currentId = g.id;
+  const c = compute(g);
+  const r = ranking(g, c);
+  const w = winner(g, c);
+  const lw = lowWins(g);
+  const sameGame = view.gameId === g.id && !view.first;
+  const leaderTotal = c.anyScore && r.length ? r[0].total : null;
+  const isLead = p => leaderTotal !== null && !isGone(g, p) && c.totals[p.id] === leaderTotal;
+  const T = TYPES[g.type];
+
+  // Positions before re-render for the standings shuffle animation
+  const before = {};
+  app.querySelectorAll(".stand[data-pid]").forEach(el => before[el.dataset.pid] = el.getBoundingClientRect());
+
+  const meta = [
+    `<span class="chip">${T.suit} ${T.name}</span>`,
+    `<span class="chip plain">${lw ? "Lowest score leads" : "Highest score wins"}</span>`,
+    g.type === "spades" ? `<span>${c.handCount} of ${totalHands(g)} hands played · up to ${topHand(g)} cards</span>` : `<span>${c.handCount} ${g.type === "rummy" ? "deal" : "hand"}${c.handCount === 1 ? "" : "s"} played</span>`,
+    sync.col ? `<span class="live ${sync.live ? "on" : ""}"><i></i>${sync.live ? "Live" : "Connecting"}</span>` : "",
+  ].join("");
+
+  let banner = "";
+  if (w && w.player) banner = `<div class="banner win"><div><strong>${esc(w.player.name)} wins</strong> with ${fmt(w.player.total)}. ${esc(w.reason)}</div>${sync.readOnly ? "" : `<button class="btn primary" data-act="rematch">Rematch</button>`}</div>`;
+  else if (w && w.tie) banner = `<div class="banner win"><div><strong>Tie game.</strong> ${esc(w.reason)}</div></div>`;
+  else if (g.example) banner = `<div class="banner"><span>This is an example Spades game so you can see how everything works. It goes away once you start your own.</span><button class="btn primary" data-act="new">${ICON.plus}Start your game</button></div>`;
+  if (sync.readOnly) banner += `<div class="ro">You're watching live. Only people with edit access can enter scores.</div>`;
+
+  // Table talk
+  const talk = tableTalk(g, c);
+  const toneBtn = `<button class="switch" data-act="tone" aria-pressed="${g.tone === "clean"}"><span class="track"></span>Clean mode</button>`;
+  let talkHtml = "";
+  if (talk.length) {
+    const n = Math.min(3, talk.length);
+    const shown = Array.from({ length: n }, (_, i) => talk[(talkOffset + i) % talk.length]);
+    talkHtml = `<section class="talk" aria-live="polite"><div class="talk-head"><span class="label">${ICON.chat}Table talk</span><span class="talk-tools">${sync.readOnly ? "" : toneBtn}${talk.length > 3 ? `<button class="btn ghost" data-act="talk">${ICON.shuffle}More</button>` : ""}</span></div><ul>${shown.map((l, i) => `<li style="--i:${i}">${l}</li>`).join("")}</ul></section>`;
+  } else if (g.players.length > 1) {
+    talkHtml = `<section class="talk"><div class="talk-head"><span class="label">${ICON.chat}Table talk</span>${sync.readOnly ? "" : toneBtn}</div><p class="quiet" style="margin:0">Play a hand and the trash talk starts here.</p></section>`;
+  }
+
+  // Ledger
+  const P = g.players;
+  const head = `<tr><th class="rnd">${g.type === "rummy" ? "Deal" : "Hand"}</th>${P.map(p => `<th class="${isGone(g, p) ? "gone" : ""}"><button data-act="settings" title="Players"><span class="th-in">${avatar(p, "sm")}${esc(p.name)}</span></button></th>`).join("")}</tr>`;
+  const body = c.rows.map((row, i) => {
+    const fresh = sameGame && i >= view.rowCount;
+    if (row.adj) {
+      return `<tr class="adj ${fresh ? "fresh" : ""}" data-adj="${row.id}" tabindex="0" aria-label="${esc(row.note || "Adjustment")}"><td class="rnd" title="${esc(row.note || "")}">±</td>${P.map((p, k) => {
+        const x = row.cells[p.id];
+        if (x.empty) return `<td class="empty" style="--c:${k}">·</td>`;
+        return `<td class="${x.pts < 0 ? "neg" : ""}" style="--c:${k}">${signed(x.pts)}<span class="d">${esc(x.label)}</span></td>`;
+      }).join("")}</tr>`;
+    }
+    const vals = P.map(p => row.cells[p.id]).filter(x => !x.inactive && !x.pending && !x.empty).map(x => x.pts);
+    const best = !row.pending && vals.length > 1 ? (lw ? Math.min(...vals) : Math.max(...vals)) : null;
+    return `<tr class="${fresh ? "fresh" : ""}" data-round="${row.id}" tabindex="0" aria-label="${row.pending ? "Enter tricks for" : "Edit"} hand ${row.hand}"><td class="rnd">${row.hand}</td>${P.map((p, k) => {
+      const x = row.cells[p.id];
+      const st = `style="--c:${k}"`;
+      if (x.inactive) return `<td class="empty" ${st}>·</td>`;
+      if (x.pending) return `<td class="pending" ${st}>${x.bid ? `bid ${x.bid}` : "nil"}<span class="d">in play</span></td>`;
+      if (x.empty) return `<td class="empty" ${st}>·</td>`;
+      const sub = x.bid !== undefined ? `<span class="d">${x.bid ? `won ${x.won} of ${x.bid}` : `nil, won ${x.won}`}</span>` : "";
+      return `<td class="${[x.pts < 0 ? "neg" : "", best !== null && x.pts === best ? "best" : ""].join(" ")}" ${st}>${fmt(x.pts)}${sub}</td>`;
+    }).join("")}</tr>`;
+  }).join("");
+  const foot = `<tr><td class="rnd">Total</td>${P.map(p => {
+    const note = isGone(g, p) ? `<small>left</small>` : "";
+    return `<td class="${isLead(p) ? "lead" : ""}"><span class="num" data-pid="${p.id}">${fmt(c.totals[p.id])}</span>${note}</td>`;
+  }).join("")}</tr>`;
+
+  let lastRank = 0, lastTotal = null;
+  const standings = r.map((p, i) => {
+    const rank = p.total === lastTotal ? lastRank : i + 1;
+    lastRank = rank; lastTotal = p.total;
+    const back = c.anyScore && !isLead(p) ? `<small>${fmt(Math.abs(p.total - leaderTotal))} back</small>` : "";
+    const crown = isLead(p) && c.anyScore ? `<span class="crown ${sameGame && view.leader !== p.id ? "new" : ""}" aria-hidden="true">♛</span>` : "";
+    return `<div class="stand ${isLead(p) ? "lead" : ""}" data-pid="${p.id}" style="--i:${i}">${crown}${avatar(p, "lg")}<span class="who">${esc(p.name)}</span><span class="rank">${c.anyScore ? rank : "–"}</span><span class="pts"><span class="num" data-pid="${p.id}">${fmt(p.total)}</span>${back}</span></div>`;
+  }).join("") + (sync.readOnly || g.example ? "" : `<button class="join-tile" data-act="join" style="--i:${r.length}">${ICON.join}Someone's joining</button>`);
+
+  const unit = g.type === "rummy" ? "deal" : "hand";
+  let fab = "";
+  if (activePlayers(g).length > 1 && !sync.readOnly) {
+    const last = g.rounds[g.rounds.length - 1];
+    if (g.type === "spades" && last && pendingRound(last)) fab = `<button class="btn primary fab" data-act="edit-last">${ICON.cards}Enter tricks for hand ${c.handCount + 1}</button>`;
+    else if (g.type === "spades" && c.handCount >= totalHands(g)) fab = "";
+    else if (g.type === "spades") fab = `<button class="btn primary fab" data-act="add-round">${ICON.plus}Bid hand ${c.handCount + 1}</button>`;
+    else fab = `<button class="btn primary fab" data-act="add-round">${ICON.plus}Add ${unit} ${c.handCount + 1}</button>`;
+  }
+
+  app.innerHTML = `
+    <div class="top">
+      <div class="brand">${ICON.cards}<span>Card Night Scorepad</span></div>
+      <div class="spacer"></div>
+      <button class="icon-toggle" data-act="sound" aria-label="${sound.on ? "Turn sound off" : "Turn sound on"}" aria-pressed="${sound.on}">${sound.on ? ICON.soundOn : ICON.soundOff}</button>
+      <button class="btn" data-act="fame" aria-label="Hall of Fame">${ICON.trophy}<span class="lbl">Hall of Fame</span></button>
+      <button class="btn" data-act="games" aria-label="Games">${ICON.list}<span class="lbl">Games</span> <span class="chip plain">${state.games.length}</span></button>
+      ${sync.readOnly ? "" : `<button class="btn" data-act="new" aria-label="New game">${ICON.plus}<span class="lbl">New game</span></button>`}
+    </div>
+    <div class="title-row">
+      <div><h1 class="game-name">${esc(g.name)}</h1><div class="game-meta">${meta}</div></div>
+      <div class="title-actions">
+        ${sync.readOnly || !c.anyScore ? "" : `<button class="btn ghost" data-act="end">${ICON.trophy}${g.ended ? "Resume game" : "End game"}</button>`}
+        ${sync.readOnly ? "" : `<button class="btn ghost" data-act="leave">${ICON.leave}Someone's leaving</button><button class="btn ghost" data-act="settings">${ICON.gear}Settings</button>`}
+      </div>
+    </div>
+    ${banner}
+    <div class="standings">${standings}</div>
+    ${talkHtml}
+    <div class="sheet-card">
+      ${P.length > 1 ? `<div class="grid-scroll"><table class="grid"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>` : `<div class="grid-empty">Add at least two players to start scoring.</div>`}
+      ${P.length > 1 && !g.rounds.length ? `<div class="grid-empty">No ${unit}s yet. ${g.type === "spades" ? "Tap <strong>Bid hand 1</strong> once everyone has bid." : `Tap <strong>Add ${unit} 1</strong> after the first ${unit}.`}</div>` : ""}
+      <div class="grid-foot"><span>${sync.readOnly ? "Scores update live." : `Tap a ${unit} to fix it.`}</span><button class="btn ghost" data-act="copy">Copy as spreadsheet</button></div>
+    </div>
+    ${fab}
+  `;
+
+  // Motion
+  if (view.first) { app.classList.add("intro"); setTimeout(() => app.classList.remove("intro"), 2600); }
+  app.querySelectorAll(".num[data-pid]").forEach(el => {
+    const id = el.dataset.pid, to = c.totals[id];
+    const from = view.first ? 0 : (sameGame && view.totals[id] !== undefined ? view.totals[id] : to);
+    countUp(el, from, to, view.first ? 1400 : 900);
+  });
+  if (sameGame && !reduced) {
+    app.querySelectorAll(".stand[data-pid]").forEach(el => {
+      const id = el.dataset.pid, b = before[id];
+      const d = c.totals[id] - (view.totals[id] ?? c.totals[id]);
+      if (b) {
+        const a = el.getBoundingClientRect(), dx = b.left - a.left, dy = b.top - a.top;
+        if (dx || dy) {
+          el.style.transition = "none"; el.style.transform = `translate(${dx}px, ${dy}px) scale(1.04)`; el.style.zIndex = 5;
+          requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transition = "transform .8s var(--spring)"; el.style.transform = ""; setTimeout(() => { el.style.zIndex = ""; el.style.transition = ""; }, 850); }));
+        }
+      }
+      if (d) el.insertAdjacentHTML("beforeend", `<span class="delta ${(lw ? d < 0 : d > 0) ? "up" : "down"}">${signed(d)}</span>`);
+    });
+  }
+  const leaderId = c.anyScore && r.length ? r[0].id : null;
+  const winKey = w && w.player ? g.id + w.player.id : null;
+  if (sameGame) {
+    if (winKey && winKey !== view.winKey) { fx.celebrate(); sound.play("win"); }
+    else if (leaderId && view.leader && leaderId !== view.leader) {
+      sound.play("lead");
+      const el = app.querySelector(`.stand[data-pid="${leaderId}"]`);
+      if (el) { const b = el.getBoundingClientRect(); fx.burst(b.left + b.width / 2, b.top + 10, 50, 8); }
+    }
+  }
+  view.first = false; view.gameId = g.id; view.rowCount = c.rows.length; view.leader = leaderId; view.winKey = winKey;
+  view.totals = { ...c.totals };
+  saveLocal();
+}
+
+/* ================= Sheets ================= */
+function openSheet(html, onMount) {
+  const layer = document.getElementById("layer");
+  layer.innerHTML = `<div class="scrim"><div class="panel" role="dialog" aria-modal="true">${html}</div></div>`;
+  const scrim = layer.firstElementChild;
+  scrim.addEventListener("mousedown", e => { if (e.target === scrim) closeSheet(); });
+  onMount && onMount(scrim.firstElementChild);
+}
+function closeSheet() { document.getElementById("layer").innerHTML = ""; }
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+const digitsOnly = inp => inp.addEventListener("input", () => { inp.value = inp.value.replace(/[^\d]/g, ""); });
+function armDelete(btn, onConfirm, label = "Tap again to confirm") {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.armed) onConfirm();
+    else { btn.dataset.armed = "1"; btn.classList.add("solid"); btn.textContent = label; }
+  });
+}
+function sheetFrame(title, sub, inner, editing, saveLabel) {
+  return `<h2>${title}</h2><p class="sub">${sub}</p>${inner}
+    <p class="err" id="err" hidden></p>
+    <div class="panel-actions">
+      ${editing ? `<button class="btn danger left" data-del>Delete</button>` : ""}
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn primary" data-save>${saveLabel}</button>
+    </div>`;
+}
+function wireFrame(panel, g, idx) {
+  panel.querySelector("[data-close]").addEventListener("click", closeSheet);
+  const del = panel.querySelector("[data-del]");
+  if (del) armDelete(del, () => { g.rounds.splice(idx, 1); persist(g); closeSheet(); render(); toast("Deleted"); });
+}
+function showErr(panel, msg) { const e = panel.querySelector("#err"); e.textContent = msg; e.hidden = false; e.style.animation = "none"; void e.offsetWidth; e.style.animation = ""; }
+function afterSave(g, isNew, label, mood) {
+  g.example = false;
+  persist(g);
+  const fab = document.querySelector(".fab");
+  const fr = fab ? fab.getBoundingClientRect() : null;
+  closeSheet(); render();
+  if (isNew) { const sc = document.querySelector(".grid-scroll"); if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: reduced ? "auto" : "smooth" }); }
+  if (fr) fx.burst(fr.left + fr.width / 2, fr.top, 26, 7);
+  if (!winner(g, compute(g))) sound.play(mood === "sad" ? "sad" : "chip");
+  toast(label);
+}
+function blockIfReadOnly() { if (sync.readOnly) { toast("You're watching live. Only people with edit access can change scores."); return true; } return false; }
+
+function roundSheet(roundId) {
+  if (blockIfReadOnly()) return;
+  const g = cur(), round = roundId ? g.rounds.find(r => r.id === roundId) : null;
+  if (round ? !!round.bids : g.type === "spades") return spadesSheet(roundId);
+  return customSheet(roundId);
+}
+function sheetContext(g, roundId) {
+  const idx = roundId ? g.rounds.findIndex(r => r.id === roundId) : g.rounds.length;
+  const round = roundId ? g.rounds[idx] : null;
+  const handNo = g.rounds.slice(0, idx + (round ? 1 : 0)).filter(r => r.kind !== "adjust").length + (round ? 0 : 1);
+  return { idx, round, handNo, players: playersAt(g, idx), c: compute(g) };
+}
+
+function customSheet(roundId) {
+  const g = cur();
+  const { idx, round, handNo, players, c } = sheetContext(g, roundId);
+  const rows = players.map(p => {
+    const v = round ? round.scores[p.id] : null;
+    const has = !blank(v), neg = has && v < 0;
+    return `<div class="entry"><div class="nm" style="display:flex;gap:10px;align-items:center">${avatar(p)}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}<small>Total ${fmt(c.totals[p.id])}</small></span></div>
+      <button class="pm" type="button" data-pm="${p.id}" aria-pressed="${neg}" aria-label="Make ${esc(p.name)}'s score negative">±</button>
+      <input class="text" id="s-${p.id}" data-pid="${p.id}" inputmode="numeric" autocomplete="off" placeholder="0" value="${has ? Math.abs(v) : ""}" aria-label="${esc(p.name)} score"></div>`;
+  }).join("");
+  const U = g.type === "rummy" ? "Deal" : "Hand";
+  openSheet(sheetFrame(`${U} ${handNo}`, "Enter each player's points. Blank counts as 0. Use ± for minus points.",
+    `<div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`, !!round, round ? "Save" : `Add ${U.toLowerCase()}`), panel => {
+    wireFrame(panel, g, idx);
+    const inputs = [...panel.querySelectorAll("input[data-pid]")];
+    panel.querySelectorAll("[data-pm]").forEach(b => b.addEventListener("click", () => { b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); sound.play("tap"); }));
+    const commit = () => {
+      const scores = {};
+      inputs.forEach(inp => {
+        const neg = panel.querySelector(`[data-pm="${inp.dataset.pid}"]`).getAttribute("aria-pressed") === "true";
+        const n = inp.value === "" ? 0 : Number(inp.value);
+        scores[inp.dataset.pid] = neg ? -n : n;
+      });
+      if (round) round.scores = scores; else g.rounds.push({ id: uid(), scores });
+      afterSave(g, !round, `${U} ${handNo} ${round ? "updated" : "added"}`);
+    };
+    inputs.forEach((inp, i) => {
+      inp.addEventListener("input", () => {
+        if (inp.value.includes("-")) { const b = panel.querySelector(`[data-pm="${inp.dataset.pid}"]`); b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); }
+        inp.value = inp.value.replace(/[^\d]/g, "");
+      });
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); inputs[i + 1] ? inputs[i + 1].focus() : commit(); } });
+    });
+    panel.querySelector("[data-save]").addEventListener("click", commit);
+    setTimeout(() => inputs[0] && inputs[0].focus(), 80);
+  });
+}
+
+function spadesSheet(roundId) {
+  const g = cur();
+  const { idx, round, handNo, players, c } = sheetContext(g, roundId);
+  const n = cardsForHand(g, handNo, players.length);
+  const maxBid = Math.max(MAX_BID, topHand(g));
+  const scoring = !!round;
+  const bids = {}, tricks = {};
+  players.forEach(p => {
+    bids[p.id] = round && round.bids[p.id] !== undefined ? round.bids[p.id] : null;
+    tricks[p.id] = round && round.tricks ? Number(round.tricks[p.id]) || 0 : null;
+  });
+  const stepper = (kind, p, v) => `<div class="step"><button type="button" data-step="${kind}" data-pid="${p.id}" data-d="-1" aria-label="${kind === "bid" ? "Lower bid" : "One fewer trick"}">−</button><input data-${kind}="${p.id}" inputmode="numeric" autocomplete="off" placeholder="–" value="${v === null ? "" : kind === "bid" && v === 0 ? "Nil" : v}" aria-label="${esc(p.name)} ${kind === "bid" ? "bid" : "tricks won"}"><button type="button" data-step="${kind}" data-pid="${p.id}" data-d="1" aria-label="${kind === "bid" ? "Raise bid" : "One more trick"}">+</button></div>`;
+  const rows = players.map(p => `<div class="bt-row ${scoring ? "" : "bids-only"}">${avatar(p)}<div class="nm">${esc(p.name)}<small>Total ${fmt(c.totals[p.id])}</small></div>
+    <div class="cell bid"><small>Bid</small>${stepper("bid", p, bids[p.id])}</div>
+    ${scoring ? `<div class="cell tk"><small>Won<span class="res" data-res="${p.id}"></span></small>${stepper("tk", p, tricks[p.id])}</div>` : ""}</div>`).join("");
+  const inner = `<div>${rows}</div><div class="tally"><span id="t-bids">Bids: <b>0</b></span>${scoring ? `<span id="t-tricks">Won: <b>0</b> of ${n}</span>` : ""}</div>`;
+  const sub = scoring
+    ? `${n} card${n === 1 ? "" : "s"} each, so ${n} trick${n === 1 ? "" : "s"} to win. Make your bid and get 10 a trick plus 1 per extra. Miss it and lose 10 a trick. Nil scores 1 a trick.`
+    : `${n} card${n === 1 ? "" : "s"} each this hand. Everyone bids 1 to ${maxBid}, or 0 to go nil. Enter tricks won after the hand is played.`;
+  const pend = round && pendingRound(round);
+  openSheet(sheetFrame(`Hand ${handNo} <small class="of">of ${totalHands(g)}</small>`, sub, inner, !!round, scoring ? (pend ? "Score hand" : "Save") : "Save bids"), panel => {
+    wireFrame(panel, g, idx);
+    const saveBtn = panel.querySelector("[data-save]");
+    const saveLabel = saveBtn.textContent;
+    let warned = false;
+    const refresh = () => {
+      warned = false; saveBtn.classList.remove("warn"); saveBtn.textContent = saveLabel;
+      panel.querySelector("#err").hidden = true;
+      const bidSum = players.reduce((a, p) => a + (bids[p.id] || 0), 0);
+      panel.querySelector("#t-bids").innerHTML = `Bids: <b>${bidSum}</b>${bidSum > n ? " (overbid, someone's going down)" : ""}`;
+      if (!scoring) return;
+      const won = players.reduce((a, p) => a + (tricks[p.id] || 0), 0);
+      const anyT = players.some(p => tricks[p.id] !== null);
+      const tt = panel.querySelector("#t-tricks");
+      tt.className = anyT ? (won === n ? "ok" : "off") : "";
+      tt.innerHTML = `Won: <b>${won}</b> of ${n}`;
+      players.forEach(p => {
+        const el = panel.querySelector(`[data-res="${p.id}"]`);
+        if (bids[p.id] === null || tricks[p.id] === null) { el.textContent = ""; return; }
+        const pts = spadesPts(bids[p.id], tricks[p.id]);
+        el.textContent = signed(pts); el.className = "res " + (pts < 0 ? "bad" : "good");
+      });
+    };
+    const clamp = (kind, v) => kind === "bid" ? Math.max(0, Math.min(maxBid, v)) : Math.max(0, Math.min(n, v));
+    const store = kind => kind === "bid" ? bids : tricks;
+    panel.addEventListener("click", e => {
+      const b = e.target.closest("[data-step]"); if (!b) return;
+      const kind = b.dataset.step, pid = b.dataset.pid, map = store(kind);
+      const d = Number(b.dataset.d);
+      const v = map[pid] === null ? (kind === "bid" ? (d > 0 ? 1 : 0) : (d > 0 ? 1 : 0)) : clamp(kind, map[pid] + d);
+      map[pid] = v;
+      panel.querySelector(`[data-${kind}="${pid}"]`).value = kind === "bid" && v === 0 ? "Nil" : v;
+      sound.play("tap"); refresh();
+    });
+    const inputs = [...panel.querySelectorAll("input[data-bid], input[data-tk]")];
+    inputs.forEach(inp => inp.addEventListener("input", () => {
+      const kind = inp.dataset.bid ? "bid" : "tk", pid = inp.dataset.bid || inp.dataset.tk;
+      inp.value = inp.value.replace(/[^\d]/g, "").slice(0, 2);
+      if (inp.value === "") store(kind)[pid] = null;
+      else { const v = clamp(kind, Number(inp.value)); store(kind)[pid] = v; if (String(v) !== inp.value) inp.value = v; }
+      refresh();
+    }));
+    const commit = () => {
+      if (players.some(p => bids[p.id] === null)) { showErr(panel, `Every player needs a bid. Use 0 to go nil.`); return; }
+      if (!scoring) {
+        g.rounds.push({ id: uid(), bids: { ...bids }, tricks: null });
+        afterSave(g, true, `Bids in for hand ${handNo}. Good luck.`);
+        return;
+      }
+      if (players.some(p => tricks[p.id] === null)) { showErr(panel, "Enter tricks won for every player. Use 0 for none."); return; }
+      const won = players.reduce((a, p) => a + tricks[p.id], 0);
+      if (won !== n && !warned) {
+        warned = true; saveBtn.classList.add("warn"); saveBtn.textContent = "Score anyway";
+        showErr(panel, `Tricks add up to ${won}, but hand ${handNo} has ${n} trick${n === 1 ? "" : "s"}. Check the counts, or tap Score anyway.`); return;
+      }
+      round.bids = { ...bids }; round.tricks = { ...tricks };
+      if (pend && handNo >= totalHands(g)) g.ended = true;
+      const sad = players.some(p => !madeBid(bids[p.id], tricks[p.id]));
+      afterSave(g, false, `Hand ${handNo} ${pend ? "scored" : "updated"}`, sad ? "sad" : "");
+    };
+    inputs.forEach((inp, i) => inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); inputs[i + 1] ? inputs[i + 1].focus() : commit(); } }));
+    saveBtn.addEventListener("click", commit);
+    refresh();
+  });
+}
+
+/* ---------- Joining and leaving ---------- */
+function handInPlay(g) { const last = g.rounds[g.rounds.length - 1]; return !!last && pendingRound(last); }
+function joinSheet() {
+  if (blockIfReadOnly()) return;
+  const g = cur();
+  if (handInPlay(g)) { toast("Finish the hand in play first, then add the new player."); return; }
+  const c = compute(g);
+  const act = activePlayers(g);
+  const totals = act.map(p => c.totals[p.id]);
+  const lw = lowWins(g);
+  const worst = totals.length ? (lw ? Math.max(...totals) : Math.min(...totals)) : 0;
+  const avg = totals.length ? Math.round(totals.reduce((a, b) => a + b, 0) / totals.length) : 0;
+  const opts = [["worst", "Worst score at the table", worst, "House rule for latecomers"], ["avg", "Table average", avg, "Fair middle ground"], ["zero", "Zero", 0, lw ? "A head start in a low-score game" : "Starts from nothing"]];
+  let av = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+  openSheet(`
+    <h2>Someone's joining</h2>
+    <p class="sub">They'll play from the next ${g.type === "rummy" ? "deal" : "hand"} on.</p>
+    <div class="field"><span>Name</span><div style="display:flex;gap:8px;align-items:center"><button type="button" class="av lg" id="j-av" style="--av:${AV_COLORS[0]}" aria-label="Change avatar">${av}</button><input class="text" id="j-name" placeholder="Their name" autocomplete="off"></div></div>
+    <div class="field"><span>Starting score</span><div class="radio-list">${opts.map(([k, l, v, h], i) => `<label><input type="radio" name="start" value="${k}" ${i === 0 ? "checked" : ""}><span class="rl-text">${l}<small>${h}</small></span><b>${fmt(v)}</b></label>`).join("")}</div></div>
+    <p class="err" id="err" hidden></p>
+    <div class="panel-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-save>Deal them in</button></div>
+  `, panel => {
+    const avBtn = panel.querySelector("#j-av");
+    avBtn.addEventListener("click", () => { av = AVATARS[(AVATARS.indexOf(av) + 1) % AVATARS.length]; avBtn.textContent = av; sound.play("tap"); });
+    panel.querySelector("[data-close]").addEventListener("click", closeSheet);
+    panel.querySelector("[data-save]").addEventListener("click", () => {
+      const name = panel.querySelector("#j-name").value.trim();
+      if (!name) { showErr(panel, "Give the new player a name."); return; }
+      const k = panel.querySelector('input[name="start"]:checked').value;
+      const start = k === "worst" ? worst : k === "avg" ? avg : 0;
+      const p = { ...newPlayer(name, g.players.length), avatar: av };
+      const row = { id: uid(), kind: "adjust", join: p.id, scores: { [p.id]: start }, labels: { [p.id]: "joined" }, note: `${name} joined at ${fmt(start)}` };
+      p.joinRow = row.id;
+      g.players.push(p); g.rounds.push(row);
+      g.example = false; persist(g);
+      closeSheet(); render(); sound.play("lead");
+      const el = document.querySelector(`.stand[data-pid="${p.id}"]`);
+      if (el) { const b = el.getBoundingClientRect(); fx.burst(b.left + b.width / 2, b.top + b.height / 2, 40, 7); }
+      toast(`${name} is in, starting at ${fmt(start)}`);
+    });
+    setTimeout(() => panel.querySelector("#j-name").focus(), 80);
+  });
+}
+function splitEvenly(total, ids) {
+  const n = ids.length, base = Math.trunc(total / n);
+  let rem = total - base * n;
+  const out = {};
+  ids.forEach(id => { let v = base; if (rem > 0) { v++; rem--; } else if (rem < 0) { v--; rem++; } out[id] = v; });
+  return out;
+}
+function leaveSheet() {
+  if (blockIfReadOnly()) return;
+  const g = cur();
+  if (handInPlay(g)) { toast("Finish the hand in play first."); return; }
+  const act = activePlayers(g);
+  if (act.length < 3) { toast("You need at least 3 players before someone can leave."); return; }
+  const c = compute(g);
+  let pick = null;
+  openSheet(`
+    <h2>Someone's leaving</h2>
+    <p class="sub">Their points are split evenly among everyone still playing, and their column stays in the history.</p>
+    <div class="field"><span>Who's leaving?</span><div class="radio-list">${act.map(p => `<label><input type="radio" name="who" value="${p.id}">${avatar(p, "sm")}<span class="rl-text">${esc(p.name)}</span><b>${fmt(c.totals[p.id])}</b></label>`).join("")}</div></div>
+    <div class="note split-preview" id="split" hidden></div>
+    <p class="err" id="err" hidden></p>
+    <div class="panel-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-save>Split their points</button></div>
+  `, panel => {
+    const prev = panel.querySelector("#split");
+    panel.querySelectorAll('input[name="who"]').forEach(inp => inp.addEventListener("change", () => {
+      pick = inp.value;
+      const total = c.totals[pick], others = act.filter(p => p.id !== pick);
+      const shares = splitEvenly(total, others.map(p => p.id));
+      prev.hidden = false;
+      prev.innerHTML = `<div><span>${esc(g.players.find(p => p.id === pick).name)} gives up</span><b>${signed(-total)}</b></div>` + others.map(p => `<div><span>${esc(p.name)}</span><b>${signed(shares[p.id])}</b></div>`).join("");
+    }));
+    panel.querySelector("[data-close]").addEventListener("click", closeSheet);
+    panel.querySelector("[data-save]").addEventListener("click", () => {
+      if (!pick) { showErr(panel, "Pick who's leaving."); return; }
+      const leaver = g.players.find(p => p.id === pick);
+      const total = c.totals[pick], others = act.filter(p => p.id !== pick);
+      const shares = splitEvenly(total, others.map(p => p.id));
+      const scores = { [pick]: -total, ...shares };
+      const labels = { [pick]: "left" }; others.forEach(p => labels[p.id] = "share");
+      const row = { id: uid(), kind: "adjust", leave: pick, scores, labels, note: `${leaver.name} left, ${fmt(total)} points split` };
+      leaver.leftRow = row.id;
+      g.rounds.push(row); g.example = false; persist(g);
+      closeSheet(); render(); sound.play("sad");
+      toast(`${leaver.name} left. Points split ${others.length} ways.`);
+    });
+  });
+}
+function adjustSheet(rowId) {
+  if (blockIfReadOnly()) return;
+  const g = cur();
+  const idx = g.rounds.findIndex(r => r.id === rowId), row = g.rounds[idx];
+  if (!row) return;
+  const undoText = row.join ? "Undo removes this player and all their scores." : row.leave ? "Undo puts the player back in the game with their points." : "Undo removes this adjustment.";
+  openSheet(`<h2>${esc(row.note || "Adjustment")}</h2><p class="sub">${undoText}</p>
+    <div class="panel-actions"><button class="btn danger left" data-undo>Undo</button><button class="btn primary" data-close>Close</button></div>`, panel => {
+    panel.querySelector("[data-close]").addEventListener("click", closeSheet);
+    armDelete(panel.querySelector("[data-undo]"), () => {
+      g.rounds.splice(idx, 1);
+      if (row.join) {
+        g.players = g.players.filter(p => p.id !== row.join);
+        g.rounds.forEach(r => ["scores", "bids", "tricks", "res", "labels"].forEach(k => { if (r[k]) delete r[k][row.join]; }));
+      }
+      if (row.leave) { const p = g.players.find(x => x.id === row.leave); if (p) delete p.leftRow; }
+      persist(g); closeSheet(); render(); toast("Undone");
+    }, "Tap again to undo");
+  });
+}
+
+/* ---------- New game, settings ---------- */
+function playerRows(players) {
+  return players.map((p, i) => `<div class="p" data-id="${p.id || ""}"><span class="seat">${i + 1}</span><button type="button" class="av" data-av style="--av:${p.color || AV_COLORS[i % AV_COLORS.length]}" aria-label="Change avatar">${p.avatar || AVATARS[i % AVATARS.length]}</button><input class="text" id="pn-${p.id || uid()}" data-pname value="${esc(p.name)}" placeholder="Player ${i + 1}" aria-label="Player ${i + 1} name">${p.locked ? "" : `<button class="icon-btn" type="button" data-rm aria-label="Remove player">${ICON.x}</button>`}</div>`).join("");
+}
+function wirePlayerList(panel) {
+  const list = panel.querySelector(".plist");
+  const renumber = () => [...list.children].forEach((row, i) => { row.querySelector(".seat").textContent = i + 1; row.querySelector("input").placeholder = `Player ${i + 1}`; });
+  list.addEventListener("click", e => {
+    const rm = e.target.closest("[data-rm]");
+    if (rm && list.children.length > 1) { rm.parentElement.remove(); renumber(); return; }
+    const avb = e.target.closest("[data-av]");
+    if (avb) { avb.textContent = AVATARS[(AVATARS.indexOf(avb.textContent) + 1) % AVATARS.length]; sound.play("tap"); }
+  });
+  const add = panel.querySelector("[data-addp]");
+  if (add) add.addEventListener("click", () => {
+    const n = list.children.length;
+    list.insertAdjacentHTML("beforeend", playerRows([{ name: "", avatar: AVATARS[(n * 7) % AVATARS.length], color: AV_COLORS[n % AV_COLORS.length] }]));
+    renumber(); list.lastElementChild.querySelector("input").focus();
+  });
+}
+const readPlayers = panel => [...panel.querySelectorAll(".plist .p")].map((row, i) => ({
+  id: row.dataset.id || null, name: row.querySelector("input").value.trim() || `Player ${i + 1}`,
+  avatar: row.querySelector("[data-av]").textContent, color: row.querySelector("[data-av]").style.getPropertyValue("--av") || AV_COLORS[i % AV_COLORS.length],
+}));
+
+function rulesFields(type, rules) {
+  const top = rules.top || DEFAULT_TOP;
+  return `<div class="seg" id="winrule">
+      <button type="button" data-low="0" aria-pressed="${!rules.lowWins}">Highest total wins</button>
+      <button type="button" data-low="1" aria-pressed="${!!rules.lowWins}">Lowest total wins</button></div>
+    ${type === "spades" ? `<div class="top-pick"><span class="tp-label">Most cards in a hand<small id="tp-sum">${topSummary(top)}</small></span>
+      <div class="step"><button type="button" data-top="-1" aria-label="Fewer cards">−</button><input id="tp" value="${top}" readonly aria-label="Most cards in a hand"><button type="button" data-top="1" aria-label="More cards">+</button></div></div>` : ""}`;
+}
+const topSummary = t => `1 up to ${t}, ${t} twice, back down to 1. ${t * 2} hands.`;
+function wireRules(panel, type, rules) {
+  const wr = panel.querySelector("#winrule");
+  if (wr) wr.addEventListener("click", e => {
+    const b = e.target.closest("[data-low]"); if (!b) return;
+    rules.lowWins = b.dataset.low === "1";
+    wr.querySelectorAll("[data-low]").forEach(x => x.setAttribute("aria-pressed", (x.dataset.low === "1") === rules.lowWins));
+  });
+  const tp = panel.querySelector(".top-pick");
+  if (tp) tp.addEventListener("click", e => {
+    const b = e.target.closest("[data-top]"); if (!b) return;
+    rules.top = Math.max(1, Math.min(13, (rules.top || DEFAULT_TOP) + Number(b.dataset.top)));
+    tp.querySelector("#tp").value = rules.top;
+    tp.querySelector("#tp-sum").textContent = topSummary(rules.top);
+    sound.play("tap");
+  });
+}
+function readRules(panel, type, rules) { return type === "spades" ? { lowWins: !!rules.lowWins, top: rules.top || DEFAULT_TOP } : { lowWins: !!rules.lowWins }; }
+function newGameSheet(fromGame) {
+  if (blockIfReadOnly()) return;
+  const last = fromGame || state.games.find(g => !g.example) || null;
+  let type = fromGame ? fromGame.type : (last ? last.type : "spades");
+  let rules = fromGame ? { ...fromGame.rules } : { lowWins: TYPES[type].lowWins };
+  const players = last ? activePlayers(last).map(p => ({ name: p.name, avatar: p.avatar, color: p.color })) : ["", "", "", ""].map((n, i) => ({ name: n, avatar: AVATARS[i * 5 % AVATARS.length], color: AV_COLORS[i % AV_COLORS.length] }));
+  openSheet(`
+    <h2>${fromGame ? "Rematch" : "New game"}</h2>
+    <div class="field"><span>Game</span><div class="types" id="types">${Object.entries(TYPES).map(([k, T]) => `<button type="button" data-type="${k}" aria-pressed="${k === type}"><span class="suit">${T.suit}</span><strong>${T.name}</strong><span>${T.blurb}</span></button>`).join("")}</div></div>
+    <label class="field"><span>Name</span><input class="text" id="gname" placeholder="${TYPES[type].name}" value="${fromGame ? esc(fromGame.name) : ""}"></label>
+    <div class="field"><span>Players (tap an avatar to change it)</span><div class="plist">${playerRows(players)}</div>
+      <button class="btn" type="button" data-addp style="align-self:flex-start">${ICON.plus}Add player</button></div>
+    <div class="field"><span>Who wins</span><div id="opts">${rulesFields(type, rules)}</div></div>
+    <div class="panel-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-start>Deal 'em</button></div>
+  `, panel => {
+    const nameInput = panel.querySelector("#gname");
+    wireRules(panel, type, rules);
+    wirePlayerList(panel);
+    panel.querySelector("#types").addEventListener("click", e => {
+      const b = e.target.closest("[data-type]"); if (!b) return;
+      type = b.dataset.type; rules = { lowWins: TYPES[type].lowWins };
+      panel.querySelectorAll("[data-type]").forEach(x => x.setAttribute("aria-pressed", x.dataset.type === type));
+      nameInput.placeholder = TYPES[type].name;
+      panel.querySelector("#opts").innerHTML = rulesFields(type, rules);
+      wireRules(panel, type, rules); sound.play("tap");
+    });
+    panel.querySelector("[data-close]").addEventListener("click", closeSheet);
+    panel.querySelector("[data-start]").addEventListener("click", () => {
+      const ps = readPlayers(panel).map(p => ({ id: uid(), name: p.name, avatar: p.avatar, color: p.color }));
+      if (ps.length < 2) { toast("Add at least two players."); return; }
+      const g = { id: uid(), v: 4, type, name: nameInput.value.trim() || TYPES[type].name, rules: readRules(panel, type, rules), tone: fromGame?.tone || "savage", created: Date.now(), players: ps, rounds: [] };
+      const ex = state.games.filter(x => x.example);
+      state.games = state.games.filter(x => !x.example);
+      ex.forEach(x => removeRemote(x.id));
+      state.games.unshift(g); state.currentId = g.id; talkOffset = 0;
+      view.first = true;
+      persist(g); closeSheet(); render(); sound.play("win");
+      toast("Game on. Good luck, you'll need it.");
+    });
+    if (!last) setTimeout(() => panel.querySelector("[data-pname]").focus(), 80);
+  });
+}
+
+function settingsSheet() {
+  if (blockIfReadOnly()) return;
+  const g = cur();
+  const rules = { ...g.rules };
+  const started = g.rounds.length > 0;
+  openSheet(`
+    <h2>Settings</h2>
+    <p class="sub">${TYPES[g.type].suit} ${TYPES[g.type].name}</p>
+    <label class="field"><span>Game name</span><input class="text" id="gname" value="${esc(g.name)}"></label>
+    <div class="field"><span>Players</span>
+      <div class="plist">${playerRows(g.players.map(p => ({ ...p, locked: started })))}</div>
+      ${started ? `<p class="hint">Rename players or tap an avatar here. Use "Someone's joining" or "Someone's leaving" to change who's playing.</p>` : `<button class="btn" type="button" data-addp style="align-self:flex-start">${ICON.plus}Add player</button>`}</div>
+    <div class="field"><span>Who wins</span>${rulesFields(g.type, rules)}</div>
+    <div class="panel-actions">
+      <button class="btn left" data-end>${g.ended ? "Resume game" : "End game"}</button>
+      <button class="btn" data-rematch>Rematch</button>
+      <button class="btn" data-close>Cancel</button><button class="btn primary" data-save>Save</button>
+    </div>
+  `, panel => {
+    wireRules(panel, g.type, rules);
+    wirePlayerList(panel);
+    panel.querySelector("[data-close]").addEventListener("click", closeSheet);
+    panel.querySelector("[data-rematch]").addEventListener("click", () => newGameSheet(g));
+    panel.querySelector("[data-end]").addEventListener("click", () => { g.ended = !g.ended; persist(g); closeSheet(); render(); if (!g.ended) toast("Game resumed"); });
+    panel.querySelector("[data-save]").addEventListener("click", () => {
+      g.name = panel.querySelector("#gname").value.trim() || g.name;
+      g.rules = readRules(panel, g.type, rules);
+      const rows = readPlayers(panel);
+      const keep = new Set();
+      g.players = rows.map(r => {
+        const old = g.players.find(p => p.id === r.id);
+        const p = old ? { ...old, name: r.name, avatar: r.avatar } : { ...newPlayer(r.name, 0), avatar: r.avatar };
+        keep.add(p.id); return p;
+      });
+      g.rounds.forEach(r => ["scores", "bids", "tricks", "res", "labels"].forEach(k => { if (r[k]) Object.keys(r[k]).forEach(pid => { if (!keep.has(pid)) delete r[k][pid]; }); }));
+      persist(g); closeSheet(); render(); toast("Saved");
+    });
+  });
+}
+
+/* ---------- Games list ---------- */
+function gamesSheet() {
+  const when = ts => new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const rowsHtml = () => state.games.map(g => {
+    const c = compute(g), r = ranking(g, c), w = winner(g, c);
+    const lead = c.anyScore && r.length ? (w && w.player ? `${w.player.name} won` : `${r[0].name} leading`) : "Not started";
+    return `<div class="g ${g.id === state.currentId ? "current" : ""}" data-id="${g.id}">
+      <button class="info" data-open><strong>${TYPES[g.type].suit} ${esc(g.name)}</strong><span>${when(g.created)} · ${activePlayers(g).length} players · ${c.handCount} ${g.type === "rummy" ? "deals" : "hands"} · ${esc(lead)}</span></button>
+      ${sync.readOnly ? "" : `<button class="icon-btn" data-delg aria-label="Delete ${esc(g.name)}">${ICON.x}</button>`}</div>`;
+  }).join("");
+  openSheet(`
+    <h2>Games</h2>
+    <p class="sub">${sync.col ? "Shared live with everyone who opens this page." : "Saved on this device."}</p>
+    <div class="glist" id="glist">${rowsHtml()}</div>
+    <div class="panel-actions"><button class="btn" data-close>Close</button>${sync.readOnly ? "" : `<button class="btn primary" data-new>${ICON.plus}New game</button>`}</div>
+  `, panel => {
+    const list = panel.querySelector("#glist");
+    list.addEventListener("click", e => {
+      const row = e.target.closest(".g"); if (!row) return;
+      const id = row.dataset.id;
+      if (e.target.closest("[data-open]")) { state.currentId = id; talkOffset = 0; view.first = true; closeSheet(); render(); return; }
+      if (e.target.closest("[data-delg]")) {
+        const g = state.games.find(x => x.id === id);
+        row.innerHTML = `<div class="confirm"><span>Delete “${esc(g.name)}” for everyone?</span><button class="btn" data-keep>Keep</button><button class="btn danger solid" data-yes>Delete</button></div>`;
+        return;
+      }
+      if (e.target.closest("[data-keep]")) { list.innerHTML = rowsHtml(); return; }
+      if (e.target.closest("[data-yes]")) {
+        state.games = state.games.filter(x => x.id !== id);
+        removeRemote(id);
+        if (!state.games.length) state.games = [sampleGame()];
+        if (state.currentId === id) { state.currentId = state.games[0].id; view.first = true; }
+        saveLocal(); render(); list.innerHTML = rowsHtml(); toast("Game deleted");
+      }
+    });
+    panel.querySelector("[data-close]").addEventListener("click", closeSheet);
+    const nb = panel.querySelector("[data-new]"); if (nb) nb.addEventListener("click", () => newGameSheet());
+  });
+}
+
+/* ---------- Hall of Fame ---------- */
+function hallOfFame() {
+  const S = cur().tone !== "clean";
+  const people = {};
+  const key = n => n.trim().toLowerCase();
+  const get = p => people[key(p.name)] ||= { name: p.name, avatar: p.avatar, color: p.color, games: 0, wins: 0, hands: 0, handWins: 0, best: null, worst: null, streak: 0 };
+  const real = state.games.filter(g => !g.example);
+  real.forEach(g => {
+    const c = compute(g), w = winner(g, c), lw = lowWins(g);
+    const run = {};
+    g.players.forEach(p => { const s = get(p); if (c.handCount) s.games++; if (w && w.player && w.player.id === p.id) s.wins++; run[p.id] = 0; });
+    c.rows.forEach(row => {
+      if (row.adj || row.pending) return;
+      const vals = Object.entries(row.cells).filter(([, x]) => !x.inactive && !x.empty);
+      if (!vals.length) return;
+      const top = vals.reduce((a, b) => (lw ? b[1].pts < a[1].pts : b[1].pts > a[1].pts) ? b : a);
+      const solo = vals.filter(v => v[1].pts === top[1].pts).length === 1;
+      vals.forEach(([id, x]) => {
+        const s = get(g.players.find(p => p.id === id));
+        s.hands++;
+        const good = lw ? -x.pts : x.pts;
+        if (!s.best || good > s.best.v) s.best = { v: good, pts: x.pts, game: g.name };
+        if (!s.worst || good < s.worst.v) s.worst = { v: good, pts: x.pts, game: g.name };
+        if (solo && id === top[0]) { s.handWins++; run[id]++; s.streak = Math.max(s.streak, run[id]); } else run[id] = 0;
+      });
+    });
+  });
+  const list = Object.values(people).filter(p => p.games > 0).sort((a, b) => b.wins - a.wins || (b.wins / b.games) - (a.wins / a.games));
+  const top = (fn, min = 1) => list.filter(p => fn(p) >= min).sort((a, b) => fn(b) - fn(a))[0];
+  const awards = [];
+  const add = (title, p, savage, clean) => { if (p) awards.push({ title, p, text: S ? savage : clean }); };
+  const champ = top(p => p.wins);
+  add("The Champ", champ, `${champ?.wins} win${champ?.wins === 1 ? "" : "s"}. Bow down, peasants.`, `${champ?.wins} win${champ?.wins === 1 ? "" : "s"}. The one to beat.`);
+  const hot = top(p => p.streak, 3);
+  add("On Fire", hot, `Won ${hot?.streak} hands in a row once. Cheating bastard, probably.`, `Won ${hot?.streak} hands in a row once.`);
+  const big = list.filter(p => p.best).sort((a, b) => b.best.v - a.best.v)[0];
+  add("Biggest Hand", big, `${fmt(big?.best.pts ?? 0)} in one hand of ${big?.best.game}. Show-off.`, `${fmt(big?.best.pts ?? 0)} in one hand of ${big?.best.game}.`);
+  const sad = list.filter(p => p.worst).sort((a, b) => a.worst.v - b.worst.v)[0];
+  if (sad && sad !== big) add("Worst Hand Ever", sad, `${fmt(sad.worst.pts)} in one hand of ${sad.worst.game}. Holy shit.`, `${fmt(sad.worst.pts)} in one hand of ${sad.worst.game}. Ouch.`);
+  const grinder = top(p => p.games, 3);
+  add("Never Goes Home", grinder, `${grinder?.games} games played. Get a fucking life.`, `${grinder?.games} games played. Dedicated.`);
+  const brides = list.filter(p => p.games >= 2 && p.wins === 0).sort((a, b) => b.games - a.games)[0];
+  add("Always the Bridesmaid", brides, `${brides?.games} games, zero wins. Damn.`, `${brides?.games} games and the first win is coming.`);
+
+  const lb = list.length ? `<div class="lb-wrap"><table class="lb"><thead><tr><th>Player</th><th>Games</th><th>Wins</th><th>Win %</th><th>Hands won</th></tr></thead><tbody>${list.map(p => `<tr><td><span class="nm">${avatar(p, "sm")}${esc(p.name)}</span></td><td>${p.games}</td><td>${p.wins}</td><td>${Math.round(100 * p.wins / p.games)}%</td><td>${p.handWins}</td></tr>`).join("")}</tbody></table></div>` : "";
+  openSheet(`
+    <h2>Hall of Fame</h2>
+    <p class="sub">All-time records across ${real.length} game${real.length === 1 ? "" : "s"}. A game counts as won when you tap End game.</p>
+    ${awards.length ? `<div class="awards">${awards.map((a, i) => `<div class="award" style="--i:${i}"><span class="t">${a.title}</span><span class="w">${avatar(a.p, "sm")}${esc(a.p.name)}</span><p>${esc(a.text)}</p></div>`).join("")}</div>` : `<p class="hint">Play a few games and the awards show up here. The example game doesn't count.</p>`}
+    ${lb}
+    <div class="panel-actions"><button class="btn primary" data-close>Close</button></div>
+  `, panel => panel.querySelector("[data-close]").addEventListener("click", closeSheet));
+}
+/* ---------- Copy ---------- */
+async function copyTable() {
+  const g = cur(); const c = compute(g);
+  const lines = [[g.type === "rummy" ? "Deal" : "Hand", ...g.players.map(p => p.name)].join("\t")];
+  c.rows.forEach(row => lines.push([row.adj ? "±" : row.hand, ...g.players.map(p => { const x = row.cells[p.id]; return x.pending || x.inactive || x.empty ? "" : x.pts; })].join("\t")));
+  lines.push(["Total", ...g.players.map(p => c.totals[p.id])].join("\t"));
+  const text = lines.join("\n");
+  try { await navigator.clipboard.writeText(text); toast("Copied. Paste into any spreadsheet."); }
+  catch (e) {
+    openSheet(`<h2>Copy scores</h2><p class="sub">Select all and copy.</p><textarea class="text" id="copybox" rows="8" style="font-family:var(--mono)">${esc(text)}</textarea><div class="panel-actions"><button class="btn primary" data-close>Done</button></div>`,
+      p => { const ta = p.querySelector("textarea"); ta.focus(); ta.select(); p.querySelector("[data-close]").addEventListener("click", closeSheet); });
+  }
+}
+
+/* ---------- Events ---------- */
+document.getElementById("app").addEventListener("click", e => {
+  const a = e.target.closest("[data-act]");
+  if (a) {
+    const act = a.dataset.act, g = cur();
+    if (act === "add-round") roundSheet();
+    else if (act === "edit-last") roundSheet(g.rounds[g.rounds.length - 1].id);
+    else if (act === "new") newGameSheet();
+    else if (act === "rematch") newGameSheet(g);
+    else if (act === "games") gamesSheet();
+    else if (act === "settings") settingsSheet();
+    else if (act === "end") { g.ended = !g.ended; persist(g); render(); if (!g.ended) toast("Game resumed"); }
+    else if (act === "fame") hallOfFame();
+    else if (act === "join") joinSheet();
+    else if (act === "leave") leaveSheet();
+    else if (act === "copy") copyTable();
+    else if (act === "talk") { talkOffset += 3; render(); }
+    else if (act === "tone") { g.tone = g.tone === "clean" ? "savage" : "clean"; persist(g); render(); toast(g.tone === "clean" ? "Clean mode on" : "Gloves off"); }
+    else if (act === "sound") { sound.on = !sound.on; lsSet(SOUND_KEY, sound.on ? "on" : "off"); render(); if (sound.on) sound.play("chip"); }
+    return;
+  }
+  const adj = e.target.closest("tr[data-adj]");
+  if (adj) { adjustSheet(adj.dataset.adj); return; }
+  const tr = e.target.closest("tr[data-round]");
+  if (tr) roundSheet(tr.dataset.round);
+});
+document.getElementById("app").addEventListener("keydown", e => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const adj = e.target.closest("tr[data-adj]"), tr = e.target.closest("tr[data-round]");
+  if (adj) { e.preventDefault(); adjustSheet(adj.dataset.adj); }
+  else if (tr) { e.preventDefault(); roundSheet(tr.dataset.round); }
+});
+
+render();
+</script>
+
+</body>
+</html>

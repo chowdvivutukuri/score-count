@@ -1,1 +1,22 @@
-# score-count
+# Card Night Scorepad
+
+A score sheet for card nights. Add players, type each round's points, and the app keeps running totals, standings and a winner. It's one `index.html` file with no build step and nothing to install.
+
+## Open it
+
+- **On your computer:** download `index.html` and open it in any browser.
+- **As a link for your phone:** in this repo go to **Settings → Pages**, set **Source** to *Deploy from a branch*, pick `main` and `/ (root)`, and save. After a minute the app is live at `https://chowdvivutukuri.github.io/score-count/`. Add it to your home screen from the browser's share menu.
+
+## What it does
+
+- **Games:** Spades, Rummy or any game you name. Rummy and custom games are a plain score sheet where you choose whether the highest or lowest total wins.
+- **Spades bidding:** pick the most cards in a hand when you start (8 by default). Hands go up from 1 card to that number, deal the top hand twice, then come back down to 1, so 8 means 16 hands. Tricks won are capped at the cards dealt, and the game ends itself after the last hand. Everyone bids 1 to 10, then you enter tricks won after the hand. Make your bid and score 10 per trick bid plus 1 per extra trick; miss it and lose 10 per trick bid. Bid 0 to go nil and score 1 point per trick won, with no 10s either way.
+- **Scoring:** tap **Add hand**, enter each player's points (use **±** for minus points), and tap a past hand to fix it. Tap **End game** to crown the winner.
+- **Players:** animal avatars (tap to change). **Someone's joining** adds a player mid-game at the worst current score. **Someone's leaving** splits that player's points evenly among everyone still playing. Both can be undone.
+- **Table talk:** savage, sweary roasts about the scores, with a **Clean mode** switch.
+- **Hall of Fame:** all-time wins, win %, biggest hand, hot streaks and more.
+- **Extras:** sound effects (mute button at the top), animations on lead changes and wins, and **Copy as spreadsheet** to paste the scores into Excel or Google Sheets.
+
+## Where scores are saved
+
+Opened from this repo or GitHub Pages, games are saved in that browser on that device. Live sync between phones only works in the claude.ai version of the app.
