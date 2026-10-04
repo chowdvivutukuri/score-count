@@ -10,7 +10,7 @@ A score sheet for card nights. Add players, type each round's points, and the ap
 ## What it does
 
 - **Games:** Spades, Rummy or any game you name. Rummy and custom games are a plain score sheet where you choose whether the highest or lowest total wins.
-- **Spades bidding:** everyone bids 1 to 10, then you enter tricks won after the hand. Make your bid and score 10 per trick bid plus 1 per extra trick; miss it and lose 10 per trick bid. Bid 0 to go nil and score 1 point per trick won, with no 10s either way.
+- **Spades bidding:** hand 1 deals 1 card each, hand 2 deals 2, and so on, so tricks won are capped at the hand number. Everyone bids 1 to 10, then you enter tricks won after the hand. Make your bid and score 10 per trick bid plus 1 per extra trick; miss it and lose 10 per trick bid. Bid 0 to go nil and score 1 point per trick won, with no 10s either way.
 - **Scoring:** tap **Add hand**, enter each player's points (use **±** for minus points), and tap a past hand to fix it. Tap **End game** to crown the winner.
 - **Players:** animal avatars (tap to change). **Someone's joining** adds a player mid-game at the worst current score. **Someone's leaving** splits that player's points evenly among everyone still playing. Both can be undone.
 - **Table talk:** savage, sweary roasts about the scores, with a **Clean mode** switch.
