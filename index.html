@@ -541,10 +541,13 @@ function migrate(g) {
 }
 
 // Spades: bid 1 to 10. Make it (or better) and score 10 per trick bid plus 1 per extra trick; fall short and lose 10 per trick bid.
+// Bid 0 is nil: take no tricks for +100, take any and lose 100.
 const MAX_BID = 10;
 const pendingRound = r => r.kind !== "adjust" && r.bids && !r.tricks;
 const tricksPerHand = n => Math.floor(52 / Math.max(1, n));
-const spadesPts = (bid, won) => won >= bid ? bid * 10 + (won - bid) : -bid * 10;
+const NIL = 100;
+const madeBid = (bid, won) => bid === 0 ? won === 0 : won >= bid;
+const spadesPts = (bid, won) => bid === 0 ? (won === 0 ? NIL : -NIL) : won >= bid ? bid * 10 + (won - bid) : -bid * 10;
 
 function compute(g) {
   const P = g.players;
@@ -563,7 +566,7 @@ function compute(g) {
         if (pending) { cells[p.id] = { pending: true, bid, pts: 0 }; return; }
         const won = Number(round.tricks[p.id]) || 0, pts = spadesPts(bid, won);
         totals[p.id] += pts;
-        cells[p.id] = { pts, bid, won, made: won >= bid };
+        cells[p.id] = { pts, bid, won, made: madeBid(bid, won) };
         return;
       }
       const v = round.scores ? round.scores[p.id] : undefined;
@@ -840,9 +843,9 @@ function render() {
       const x = row.cells[p.id];
       const st = `style="--c:${k}"`;
       if (x.inactive) return `<td class="empty" ${st}>·</td>`;
-      if (x.pending) return `<td class="pending" ${st}>bid ${x.bid}<span class="d">in play</span></td>`;
+      if (x.pending) return `<td class="pending" ${st}>${x.bid ? `bid ${x.bid}` : "nil"}<span class="d">in play</span></td>`;
       if (x.empty) return `<td class="empty" ${st}>·</td>`;
-      const sub = x.bid !== undefined ? `<span class="d">won ${x.won} of ${x.bid}</span>` : "";
+      const sub = x.bid !== undefined ? `<span class="d">${x.bid ? `won ${x.won} of ${x.bid}` : `nil, won ${x.won}`}</span>` : "";
       return `<td class="${[x.pts < 0 ? "neg" : "", best !== null && x.pts === best ? "best" : ""].join(" ")}" ${st}>${fmt(x.pts)}${sub}</td>`;
     }).join("")}</tr>`;
   }).join("");
@@ -1038,14 +1041,14 @@ function spadesSheet(roundId) {
     bids[p.id] = round && round.bids[p.id] !== undefined ? round.bids[p.id] : null;
     tricks[p.id] = round && round.tricks ? Number(round.tricks[p.id]) || 0 : null;
   });
-  const stepper = (kind, p, v) => `<div class="step"><button type="button" data-step="${kind}" data-pid="${p.id}" data-d="-1" aria-label="${kind === "bid" ? "Lower bid" : "One fewer trick"}">−</button><input data-${kind}="${p.id}" inputmode="numeric" autocomplete="off" placeholder="–" value="${v === null ? "" : v}" aria-label="${esc(p.name)} ${kind === "bid" ? "bid" : "tricks won"}"><button type="button" data-step="${kind}" data-pid="${p.id}" data-d="1" aria-label="${kind === "bid" ? "Raise bid" : "One more trick"}">+</button></div>`;
+  const stepper = (kind, p, v) => `<div class="step"><button type="button" data-step="${kind}" data-pid="${p.id}" data-d="-1" aria-label="${kind === "bid" ? "Lower bid" : "One fewer trick"}">−</button><input data-${kind}="${p.id}" inputmode="numeric" autocomplete="off" placeholder="–" value="${v === null ? "" : kind === "bid" && v === 0 ? "Nil" : v}" aria-label="${esc(p.name)} ${kind === "bid" ? "bid" : "tricks won"}"><button type="button" data-step="${kind}" data-pid="${p.id}" data-d="1" aria-label="${kind === "bid" ? "Raise bid" : "One more trick"}">+</button></div>`;
   const rows = players.map(p => `<div class="bt-row ${scoring ? "" : "bids-only"}">${avatar(p)}<div class="nm">${esc(p.name)}<small>Total ${fmt(c.totals[p.id])}</small></div>
     <div class="cell bid"><small>Bid</small>${stepper("bid", p, bids[p.id])}</div>
     ${scoring ? `<div class="cell tk"><small>Won<span class="res" data-res="${p.id}"></span></small>${stepper("tk", p, tricks[p.id])}</div>` : ""}</div>`).join("");
   const inner = `<div>${rows}</div><div class="tally"><span id="t-bids">Bids: <b>0</b></span>${scoring ? `<span id="t-tricks">Won: <b>0</b> of ${n}</span>` : ""}</div>`;
   const sub = scoring
-    ? "Enter how many tricks each player won. Make your bid and get 10 a trick plus 1 per extra. Miss it and lose 10 a trick."
-    : `Everyone bids 1 to ${MAX_BID}. Enter tricks won after the hand is played.`;
+    ? "Enter how many tricks each player won. Make your bid and get 10 a trick plus 1 per extra. Miss it and lose 10 a trick. Nil is +100 with no tricks, −100 with any."
+    : `Everyone bids 1 to ${MAX_BID}, or 0 to go nil. Enter tricks won after the hand is played.`;
   const pend = round && pendingRound(round);
   openSheet(sheetFrame(`Hand ${handNo}`, sub, inner, !!round, scoring ? (pend ? "Score hand" : "Save") : "Save bids"), panel => {
     wireFrame(panel, g, idx);
@@ -1070,15 +1073,15 @@ function spadesSheet(roundId) {
         el.textContent = signed(pts); el.className = "res " + (pts < 0 ? "bad" : "good");
       });
     };
-    const clamp = (kind, v) => kind === "bid" ? Math.max(1, Math.min(MAX_BID, v)) : Math.max(0, Math.min(n, v));
+    const clamp = (kind, v) => kind === "bid" ? Math.max(0, Math.min(MAX_BID, v)) : Math.max(0, Math.min(n, v));
     const store = kind => kind === "bid" ? bids : tricks;
     panel.addEventListener("click", e => {
       const b = e.target.closest("[data-step]"); if (!b) return;
       const kind = b.dataset.step, pid = b.dataset.pid, map = store(kind);
       const d = Number(b.dataset.d);
-      const v = map[pid] === null ? (kind === "bid" ? (d > 0 ? 1 : MAX_BID) : (d > 0 ? 1 : 0)) : clamp(kind, map[pid] + d);
+      const v = map[pid] === null ? (kind === "bid" ? (d > 0 ? 1 : 0) : (d > 0 ? 1 : 0)) : clamp(kind, map[pid] + d);
       map[pid] = v;
-      panel.querySelector(`[data-${kind}="${pid}"]`).value = v;
+      panel.querySelector(`[data-${kind}="${pid}"]`).value = kind === "bid" && v === 0 ? "Nil" : v;
       sound.play("tap"); refresh();
     });
     const inputs = [...panel.querySelectorAll("input[data-bid], input[data-tk]")];
@@ -1090,7 +1093,7 @@ function spadesSheet(roundId) {
       refresh();
     }));
     const commit = () => {
-      if (players.some(p => bids[p.id] === null)) { showErr(panel, `Every player needs a bid from 1 to ${MAX_BID}.`); return; }
+      if (players.some(p => bids[p.id] === null)) { showErr(panel, `Every player needs a bid. Use 0 to go nil.`); return; }
       if (!scoring) {
         g.rounds.push({ id: uid(), bids: { ...bids }, tricks: null });
         afterSave(g, true, `Bids in for hand ${handNo}. Good luck.`);
@@ -1103,7 +1106,7 @@ function spadesSheet(roundId) {
         showErr(panel, `Tricks add up to ${won}, but a hand with ${players.length} players has ${n}. Check the counts, or tap Score anyway.`); return;
       }
       round.bids = { ...bids }; round.tricks = { ...tricks };
-      const sad = players.some(p => tricks[p.id] < bids[p.id]);
+      const sad = players.some(p => !madeBid(bids[p.id], tricks[p.id]));
       afterSave(g, false, `Hand ${handNo} ${pend ? "scored" : "updated"}`, sad ? "sad" : "");
     };
     inputs.forEach((inp, i) => inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); inputs[i + 1] ? inputs[i + 1].focus() : commit(); } }));
