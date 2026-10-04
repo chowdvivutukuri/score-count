@@ -541,13 +541,12 @@ function migrate(g) {
 }
 
 // Spades: bid 1 to 10. Make it (or better) and score 10 per trick bid plus 1 per extra trick; fall short and lose 10 per trick bid.
-// Bid 0 is nil: take no tricks for +100, take any and lose 100.
+// Bid 0 is nil: no 10s either way, just 1 point per trick won.
 const MAX_BID = 10;
 const pendingRound = r => r.kind !== "adjust" && r.bids && !r.tricks;
 const tricksPerHand = n => Math.floor(52 / Math.max(1, n));
-const NIL = 100;
-const madeBid = (bid, won) => bid === 0 ? won === 0 : won >= bid;
-const spadesPts = (bid, won) => bid === 0 ? (won === 0 ? NIL : -NIL) : won >= bid ? bid * 10 + (won - bid) : -bid * 10;
+const madeBid = (bid, won) => won >= bid;
+const spadesPts = (bid, won) => bid === 0 ? won : won >= bid ? bid * 10 + (won - bid) : -bid * 10;
 
 function compute(g) {
   const P = g.players;
@@ -1047,7 +1046,7 @@ function spadesSheet(roundId) {
     ${scoring ? `<div class="cell tk"><small>Won<span class="res" data-res="${p.id}"></span></small>${stepper("tk", p, tricks[p.id])}</div>` : ""}</div>`).join("");
   const inner = `<div>${rows}</div><div class="tally"><span id="t-bids">Bids: <b>0</b></span>${scoring ? `<span id="t-tricks">Won: <b>0</b> of ${n}</span>` : ""}</div>`;
   const sub = scoring
-    ? "Enter how many tricks each player won. Make your bid and get 10 a trick plus 1 per extra. Miss it and lose 10 a trick. Nil is +100 with no tricks, −100 with any."
+    ? "Enter how many tricks each player won. Make your bid and get 10 a trick plus 1 per extra. Miss it and lose 10 a trick. Nil scores 1 a trick."
     : `Everyone bids 1 to ${MAX_BID}, or 0 to go nil. Enter tricks won after the hand is played.`;
   const pend = round && pendingRound(round);
   openSheet(sheetFrame(`Hand ${handNo}`, sub, inner, !!round, scoring ? (pend ? "Score hand" : "Save") : "Save bids"), panel => {
