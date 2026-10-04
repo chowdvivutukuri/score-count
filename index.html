@@ -326,6 +326,17 @@ button.av:hover { transform: scale(1.15) rotate(-8deg); }
 .ir-row.focus { background: linear-gradient(90deg, var(--felt-soft), transparent); border-radius: 10px; }
 .sp-row { grid-template-columns: auto 1fr 104px 128px; }
 .sp-head { grid-template-columns: 30px 1fr 104px 128px; }
+.bt-row { display: grid; grid-template-columns: auto 1fr 132px 132px; grid-template-areas: "av nm bid tk"; gap: 6px 10px; align-items: end; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.bt-row:last-child { border-bottom: 0; }
+.bt-row.bids-only { grid-template-columns: auto 1fr 132px; grid-template-areas: "av nm bid"; }
+.bt-row > .av { grid-area: av; align-self: center; }
+.bt-row .nm { grid-area: nm; align-self: center; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-row .nm small { display: block; font: 500 12px var(--mono); color: var(--muted); }
+.bt-row .bid { grid-area: bid; } .bt-row .tk { grid-area: tk; }
+.bt-row .cell small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px 2px; }
+.bt-row .res { font: 600 12px var(--mono); margin-left: 6px; letter-spacing: 0; text-transform: none; }
+.bt-row .res.good { color: var(--good); } .bt-row .res.bad { color: var(--danger); }
+@media (max-width: 480px) { .bt-row:not(.bids-only) { grid-template-columns: auto 1fr 1fr; grid-template-areas: "av nm nm" ". bid tk"; } }
 .ro { border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 10px 14px; color: var(--muted); font-size: 14px; }
 .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--muted); cursor: pointer; background: none; border: 0; padding: 4px 0; }
 .switch .track { width: 34px; height: 20px; border-radius: 999px; background: var(--rule-strong); position: relative; transition: background .25s; }
@@ -392,7 +403,7 @@ button.av:hover { transform: scale(1.15) rotate(-8deg); }
 <script>
 /* ================= Game knowledge ================= */
 const TYPES = {
-  spades: { name: "Spades", suit: "♠", blurb: "Highest total wins", lowWins: false },
+  spades: { name: "Spades", suit: "♠", blurb: "Bid, then count tricks", lowWins: false },
   rummy: { name: "Rummy", suit: "♦", blurb: "Lowest total wins", lowWins: true },
   custom: { name: "Other game", suit: "♣", blurb: "Name it yourself", lowWins: false },
 };
@@ -432,11 +443,12 @@ const ICON = {
 function newPlayer(name, i) { return { id: uid(), name, avatar: AVATARS[hash(name + i) % AVATARS.length], color: AV_COLORS[hash(name) % AV_COLORS.length] }; }
 function sampleGame() {
   const players = ["Ana", "Ben", "Cleo", "Dev"].map(newPlayer);
-  const rows = [[31, 40, 20, 30], [-40, 22, 30, -100], [50, -30, 31, 20], [100, 41, 40, 40], [31, 30, 30, 30]];
+  const hands = [[[3, 4], [4, 3], [2, 2], [3, 4]], [[4, 2], [2, 3], [3, 3], [5, 5]], [[5, 6], [3, 1], [3, 3], [2, 3]], [[4, 4], [4, 5], [2, 2], [2, 2]], [[3, 3], [3, 3], [3, 3], [3, 4]]];
+  const pick = (h, k) => Object.fromEntries(players.map((p, i) => [p.id, h[i][k]]));
   return {
     id: uid(), v: 4, type: "spades", name: "Spades (example)", rules: { lowWins: false }, tone: "savage",
     example: true, created: Date.now(), players,
-    rounds: rows.map(r => ({ id: uid(), scores: Object.fromEntries(players.map((p, i) => [p.id, r[i]])) })),
+    rounds: hands.map(h => ({ id: uid(), bids: pick(h, 0), tricks: pick(h, 1) })),
   };
 }
 function loadLocal() {
@@ -528,6 +540,12 @@ function migrate(g) {
   return g;
 }
 
+// Spades: bid 1 to 10. Make it (or better) and score 10 per trick bid plus 1 per extra trick; fall short and lose 10 per trick bid.
+const MAX_BID = 10;
+const pendingRound = r => r.kind !== "adjust" && r.bids && !r.tricks;
+const tricksPerHand = n => Math.floor(52 / Math.max(1, n));
+const spadesPts = (bid, won) => won >= bid ? bid * 10 + (won - bid) : -bid * 10;
+
 function compute(g) {
   const P = g.players;
   const totals = Object.fromEntries(P.map(p => [p.id, 0]));
@@ -535,18 +553,28 @@ function compute(g) {
   const rows = g.rounds.map((round, idx) => {
     const cells = {};
     const adj = round.kind === "adjust";
+    const pending = pendingRound(round);
     if (!adj) hand++;
     P.forEach(p => {
       if (!adj && !activeAt(g, p.id, idx)) { cells[p.id] = { inactive: true, pts: 0 }; return; }
+      if (round.bids) {
+        const bid = round.bids[p.id];
+        if (bid === undefined) { cells[p.id] = { inactive: true, pts: 0 }; return; }
+        if (pending) { cells[p.id] = { pending: true, bid, pts: 0 }; return; }
+        const won = Number(round.tricks[p.id]) || 0, pts = spadesPts(bid, won);
+        totals[p.id] += pts;
+        cells[p.id] = { pts, bid, won, made: won >= bid };
+        return;
+      }
       const v = round.scores ? round.scores[p.id] : undefined;
       const pts = Number(v) || 0;
       totals[p.id] += pts;
       cells[p.id] = { pts, empty: blank(v), label: adj ? round.labels?.[p.id] || "" : "" };
     });
-    return adj ? { id: round.id, cells, adj: true, note: round.note } : { id: round.id, cells, hand };
+    return adj ? { id: round.id, cells, adj: true, note: round.note } : { id: round.id, cells, hand, pending };
   });
-  const handCount = rows.filter(r => !r.adj).length;
-  return { rows, totals, handCount, anyScore: rows.length > 0 };
+  const handCount = rows.filter(r => !r.adj && !r.pending).length;
+  return { rows, totals, handCount, anyScore: rows.some(r => !r.pending) };
 }
 function ranking(g, c) {
   const lw = lowWins(g);
@@ -564,7 +592,7 @@ function tableTalk(g, c) {
   const L = [];
   const nm = id => `<b>${esc(g.players.find(p => p.id === id)?.name || "?")}</b>`;
   const r = ranking(g, c);
-  const rows = c.rows.filter(x => !x.adj);
+  const rows = c.rows.filter(x => !x.adj && !x.pending);
   if (r.length < 2 || !c.anyScore) return L;
   const lw = lowWins(g);
   const better = (a, b) => lw ? a < b : a > b;
@@ -629,7 +657,7 @@ function tableTalk(g, c) {
     let lastAfter2 = null, seen = 0;
     for (const row of c.rows) {
       Object.entries(row.cells).forEach(([id, x]) => run[id] += x.pts);
-      if (!row.adj && ++seen === 2) lastAfter2 = activePlayers(g).sort((a, b) => lw ? run[b.id] - run[a.id] : run[a.id] - run[b.id])[0]?.id;
+      if (!row.adj && !row.pending && ++seen === 2) lastAfter2 = activePlayers(g).sort((a, b) => lw ? run[b.id] - run[a.id] : run[a.id] - run[b.id])[0]?.id;
     }
     if (lastAfter2 === r[0].id) L.push(S ? `${nm(r[0].id)} was dead last after two hands and is now on top. Never count out a stubborn ass.`
       : `${nm(r[0].id)} was last after two hands and is now on top. Never count them out.`);
@@ -808,12 +836,14 @@ function render() {
     }
     const vals = P.map(p => row.cells[p.id]).filter(x => !x.inactive && !x.pending && !x.empty).map(x => x.pts);
     const best = !row.pending && vals.length > 1 ? (lw ? Math.min(...vals) : Math.max(...vals)) : null;
-    return `<tr class="${fresh ? "fresh" : ""}" data-round="${row.id}" tabindex="0" aria-label="Edit hand ${row.hand}"><td class="rnd">${row.hand}</td>${P.map((p, k) => {
+    return `<tr class="${fresh ? "fresh" : ""}" data-round="${row.id}" tabindex="0" aria-label="${row.pending ? "Enter tricks for" : "Edit"} hand ${row.hand}"><td class="rnd">${row.hand}</td>${P.map((p, k) => {
       const x = row.cells[p.id];
       const st = `style="--c:${k}"`;
       if (x.inactive) return `<td class="empty" ${st}>·</td>`;
+      if (x.pending) return `<td class="pending" ${st}>bid ${x.bid}<span class="d">in play</span></td>`;
       if (x.empty) return `<td class="empty" ${st}>·</td>`;
-      return `<td class="${[x.pts < 0 ? "neg" : "", best !== null && x.pts === best ? "best" : ""].join(" ")}" ${st}>${fmt(x.pts)}</td>`;
+      const sub = x.bid !== undefined ? `<span class="d">won ${x.won} of ${x.bid}</span>` : "";
+      return `<td class="${[x.pts < 0 ? "neg" : "", best !== null && x.pts === best ? "best" : ""].join(" ")}" ${st}>${fmt(x.pts)}${sub}</td>`;
     }).join("")}</tr>`;
   }).join("");
   const foot = `<tr><td class="rnd">Total</td>${P.map(p => {
@@ -833,7 +863,10 @@ function render() {
   const unit = g.type === "rummy" ? "deal" : "hand";
   let fab = "";
   if (activePlayers(g).length > 1 && !sync.readOnly) {
-    fab = `<button class="btn primary fab" data-act="add-round">${ICON.plus}Add ${unit} ${c.handCount + 1}</button>`;
+    const last = g.rounds[g.rounds.length - 1];
+    if (g.type === "spades" && last && pendingRound(last)) fab = `<button class="btn primary fab" data-act="edit-last">${ICON.cards}Enter tricks for hand ${c.handCount + 1}</button>`;
+    else if (g.type === "spades") fab = `<button class="btn primary fab" data-act="add-round">${ICON.plus}Bid hand ${c.handCount + 1}</button>`;
+    else fab = `<button class="btn primary fab" data-act="add-round">${ICON.plus}Add ${unit} ${c.handCount + 1}</button>`;
   }
 
   app.innerHTML = `
@@ -946,6 +979,8 @@ function blockIfReadOnly() { if (sync.readOnly) { toast("You're watching live. O
 
 function roundSheet(roundId) {
   if (blockIfReadOnly()) return;
+  const g = cur(), round = roundId ? g.rounds.find(r => r.id === roundId) : null;
+  if (round ? !!round.bids : g.type === "spades") return spadesSheet(roundId);
   return customSheet(roundId);
 }
 function sheetContext(g, roundId) {
@@ -993,8 +1028,92 @@ function customSheet(roundId) {
   });
 }
 
+function spadesSheet(roundId) {
+  const g = cur();
+  const { idx, round, handNo, players, c } = sheetContext(g, roundId);
+  const n = tricksPerHand(players.length);
+  const scoring = !!round;
+  const bids = {}, tricks = {};
+  players.forEach(p => {
+    bids[p.id] = round && round.bids[p.id] !== undefined ? round.bids[p.id] : null;
+    tricks[p.id] = round && round.tricks ? Number(round.tricks[p.id]) || 0 : null;
+  });
+  const stepper = (kind, p, v) => `<div class="step"><button type="button" data-step="${kind}" data-pid="${p.id}" data-d="-1" aria-label="${kind === "bid" ? "Lower bid" : "One fewer trick"}">−</button><input data-${kind}="${p.id}" inputmode="numeric" autocomplete="off" placeholder="–" value="${v === null ? "" : v}" aria-label="${esc(p.name)} ${kind === "bid" ? "bid" : "tricks won"}"><button type="button" data-step="${kind}" data-pid="${p.id}" data-d="1" aria-label="${kind === "bid" ? "Raise bid" : "One more trick"}">+</button></div>`;
+  const rows = players.map(p => `<div class="bt-row ${scoring ? "" : "bids-only"}">${avatar(p)}<div class="nm">${esc(p.name)}<small>Total ${fmt(c.totals[p.id])}</small></div>
+    <div class="cell bid"><small>Bid</small>${stepper("bid", p, bids[p.id])}</div>
+    ${scoring ? `<div class="cell tk"><small>Won<span class="res" data-res="${p.id}"></span></small>${stepper("tk", p, tricks[p.id])}</div>` : ""}</div>`).join("");
+  const inner = `<div>${rows}</div><div class="tally"><span id="t-bids">Bids: <b>0</b></span>${scoring ? `<span id="t-tricks">Won: <b>0</b> of ${n}</span>` : ""}</div>`;
+  const sub = scoring
+    ? "Enter how many tricks each player won. Make your bid and get 10 a trick plus 1 per extra. Miss it and lose 10 a trick."
+    : `Everyone bids 1 to ${MAX_BID}. Enter tricks won after the hand is played.`;
+  const pend = round && pendingRound(round);
+  openSheet(sheetFrame(`Hand ${handNo}`, sub, inner, !!round, scoring ? (pend ? "Score hand" : "Save") : "Save bids"), panel => {
+    wireFrame(panel, g, idx);
+    const saveBtn = panel.querySelector("[data-save]");
+    const saveLabel = saveBtn.textContent;
+    let warned = false;
+    const refresh = () => {
+      warned = false; saveBtn.classList.remove("warn"); saveBtn.textContent = saveLabel;
+      panel.querySelector("#err").hidden = true;
+      const bidSum = players.reduce((a, p) => a + (bids[p.id] || 0), 0);
+      panel.querySelector("#t-bids").innerHTML = `Bids: <b>${bidSum}</b>${bidSum > n ? " (overbid, someone's going down)" : ""}`;
+      if (!scoring) return;
+      const won = players.reduce((a, p) => a + (tricks[p.id] || 0), 0);
+      const anyT = players.some(p => tricks[p.id] !== null);
+      const tt = panel.querySelector("#t-tricks");
+      tt.className = anyT ? (won === n ? "ok" : "off") : "";
+      tt.innerHTML = `Won: <b>${won}</b> of ${n}`;
+      players.forEach(p => {
+        const el = panel.querySelector(`[data-res="${p.id}"]`);
+        if (bids[p.id] === null || tricks[p.id] === null) { el.textContent = ""; return; }
+        const pts = spadesPts(bids[p.id], tricks[p.id]);
+        el.textContent = signed(pts); el.className = "res " + (pts < 0 ? "bad" : "good");
+      });
+    };
+    const clamp = (kind, v) => kind === "bid" ? Math.max(1, Math.min(MAX_BID, v)) : Math.max(0, Math.min(n, v));
+    const store = kind => kind === "bid" ? bids : tricks;
+    panel.addEventListener("click", e => {
+      const b = e.target.closest("[data-step]"); if (!b) return;
+      const kind = b.dataset.step, pid = b.dataset.pid, map = store(kind);
+      const d = Number(b.dataset.d);
+      const v = map[pid] === null ? (kind === "bid" ? (d > 0 ? 1 : MAX_BID) : (d > 0 ? 1 : 0)) : clamp(kind, map[pid] + d);
+      map[pid] = v;
+      panel.querySelector(`[data-${kind}="${pid}"]`).value = v;
+      sound.play("tap"); refresh();
+    });
+    const inputs = [...panel.querySelectorAll("input[data-bid], input[data-tk]")];
+    inputs.forEach(inp => inp.addEventListener("input", () => {
+      const kind = inp.dataset.bid ? "bid" : "tk", pid = inp.dataset.bid || inp.dataset.tk;
+      inp.value = inp.value.replace(/[^\d]/g, "").slice(0, 2);
+      if (inp.value === "") store(kind)[pid] = null;
+      else { const v = clamp(kind, Number(inp.value)); store(kind)[pid] = v; if (String(v) !== inp.value) inp.value = v; }
+      refresh();
+    }));
+    const commit = () => {
+      if (players.some(p => bids[p.id] === null)) { showErr(panel, `Every player needs a bid from 1 to ${MAX_BID}.`); return; }
+      if (!scoring) {
+        g.rounds.push({ id: uid(), bids: { ...bids }, tricks: null });
+        afterSave(g, true, `Bids in for hand ${handNo}. Good luck.`);
+        return;
+      }
+      if (players.some(p => tricks[p.id] === null)) { showErr(panel, "Enter tricks won for every player. Use 0 for none."); return; }
+      const won = players.reduce((a, p) => a + tricks[p.id], 0);
+      if (won !== n && !warned) {
+        warned = true; saveBtn.classList.add("warn"); saveBtn.textContent = "Score anyway";
+        showErr(panel, `Tricks add up to ${won}, but a hand with ${players.length} players has ${n}. Check the counts, or tap Score anyway.`); return;
+      }
+      round.bids = { ...bids }; round.tricks = { ...tricks };
+      const sad = players.some(p => tricks[p.id] < bids[p.id]);
+      afterSave(g, false, `Hand ${handNo} ${pend ? "scored" : "updated"}`, sad ? "sad" : "");
+    };
+    inputs.forEach((inp, i) => inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); inputs[i + 1] ? inputs[i + 1].focus() : commit(); } }));
+    saveBtn.addEventListener("click", commit);
+    refresh();
+  });
+}
+
 /* ---------- Joining and leaving ---------- */
-function handInPlay() { return false; }
+function handInPlay(g) { const last = g.rounds[g.rounds.length - 1]; return !!last && pendingRound(last); }
 function joinSheet() {
   if (blockIfReadOnly()) return;
   const g = cur();
@@ -1278,7 +1397,7 @@ function hallOfFame() {
     const run = {};
     g.players.forEach(p => { const s = get(p); if (c.handCount) s.games++; if (w && w.player && w.player.id === p.id) s.wins++; run[p.id] = 0; });
     c.rows.forEach(row => {
-      if (row.adj) return;
+      if (row.adj || row.pending) return;
       const vals = Object.entries(row.cells).filter(([, x]) => !x.inactive && !x.empty);
       if (!vals.length) return;
       const top = vals.reduce((a, b) => (lw ? b[1].pts < a[1].pts : b[1].pts > a[1].pts) ? b : a);
@@ -1339,6 +1458,7 @@ document.getElementById("app").addEventListener("click", e => {
   if (a) {
     const act = a.dataset.act, g = cur();
     if (act === "add-round") roundSheet();
+    else if (act === "edit-last") roundSheet(g.rounds[g.rounds.length - 1].id);
     else if (act === "new") newGameSheet();
     else if (act === "rematch") newGameSheet(g);
     else if (act === "games") gamesSheet();
