@@ -337,6 +337,10 @@ button.av:hover { transform: scale(1.15) rotate(-8deg); }
 .bt-row .res { font: 600 12px var(--mono); margin-left: 6px; letter-spacing: 0; text-transform: none; }
 .bt-row .res.good { color: var(--good); } .bt-row .res.bad { color: var(--danger); }
 @media (max-width: 480px) { .bt-row:not(.bids-only) { grid-template-columns: auto 1fr 1fr; grid-template-areas: "av nm nm" ". bid tk"; } }
+.top-pick { display: grid; grid-template-columns: 1fr 132px; gap: 12px; align-items: center; margin-top: 10px; }
+.tp-label { font-size: 14px; font-weight: 700; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.tp-label small { display: block; font-weight: 500; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.panel h2 .of { font: 500 15px var(--body); color: var(--muted); font-style: normal; margin-left: 4px; }
 .ro { border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 10px 14px; color: var(--muted); font-size: 14px; }
 .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--muted); cursor: pointer; background: none; border: 0; padding: 4px 0; }
 .switch .track { width: 34px; height: 20px; border-radius: 999px; background: var(--rule-strong); position: relative; transition: background .25s; }
@@ -446,7 +450,7 @@ function sampleGame() {
   const hands = [[[1, 1], [0, 0], [1, 0], [0, 0]], [[1, 1], [1, 0], [0, 0], [1, 1]], [[2, 1], [1, 1], [1, 1], [0, 0]], [[2, 2], [1, 2], [1, 0], [1, 0]], [[2, 2], [2, 1], [1, 1], [1, 1]]];
   const pick = (h, k) => Object.fromEntries(players.map((p, i) => [p.id, h[i][k]]));
   return {
-    id: uid(), v: 4, type: "spades", name: "Spades (example)", rules: { lowWins: false }, tone: "savage",
+    id: uid(), v: 4, type: "spades", name: "Spades (example)", rules: { lowWins: false, top: 8 }, tone: "savage",
     example: true, created: Date.now(), players,
     rounds: hands.map(h => ({ id: uid(), bids: pick(h, 0), tricks: pick(h, 1) })),
   };
@@ -544,8 +548,14 @@ function migrate(g) {
 // Bid 0 is nil: no 10s either way, just 1 point per trick won.
 const MAX_BID = 10;
 const pendingRound = r => r.kind !== "adjust" && r.bids && !r.tricks;
-// Hand 1 deals 1 card each, hand 2 deals 2, and so on, until the deck runs out.
-const cardsForHand = (handNo, players) => Math.max(1, Math.min(handNo, Math.floor(52 / Math.max(1, players))));
+// Cards go up 1, 2 … top, the top hand is dealt twice, then back down … 2, 1. So top 8 is 16 hands.
+const DEFAULT_TOP = 8;
+const topHand = g => g.rules?.top || DEFAULT_TOP;
+const totalHands = g => topHand(g) * 2;
+const cardsForHand = (g, handNo, players) => {
+  const top = topHand(g), k = handNo <= top ? handNo : 2 * top + 1 - handNo;
+  return Math.max(1, Math.min(k, Math.floor(52 / Math.max(1, players))));
+};
 const madeBid = (bid, won) => won >= bid;
 const spadesPts = (bid, won) => bid === 0 ? won : won >= bid ? bid * 10 + (won - bid) : -bid * 10;
 
@@ -803,7 +813,7 @@ function render() {
   const meta = [
     `<span class="chip">${T.suit} ${T.name}</span>`,
     `<span class="chip plain">${lw ? "Lowest score leads" : "Highest score wins"}</span>`,
-    `<span>${c.handCount} ${g.type === "rummy" ? "deal" : "hand"}${c.handCount === 1 ? "" : "s"} played</span>`,
+    g.type === "spades" ? `<span>${c.handCount} of ${totalHands(g)} hands played · up to ${topHand(g)} cards</span>` : `<span>${c.handCount} ${g.type === "rummy" ? "deal" : "hand"}${c.handCount === 1 ? "" : "s"} played</span>`,
     sync.col ? `<span class="live ${sync.live ? "on" : ""}"><i></i>${sync.live ? "Live" : "Connecting"}</span>` : "",
   ].join("");
 
@@ -868,6 +878,7 @@ function render() {
   if (activePlayers(g).length > 1 && !sync.readOnly) {
     const last = g.rounds[g.rounds.length - 1];
     if (g.type === "spades" && last && pendingRound(last)) fab = `<button class="btn primary fab" data-act="edit-last">${ICON.cards}Enter tricks for hand ${c.handCount + 1}</button>`;
+    else if (g.type === "spades" && c.handCount >= totalHands(g)) fab = "";
     else if (g.type === "spades") fab = `<button class="btn primary fab" data-act="add-round">${ICON.plus}Bid hand ${c.handCount + 1}</button>`;
     else fab = `<button class="btn primary fab" data-act="add-round">${ICON.plus}Add ${unit} ${c.handCount + 1}</button>`;
   }
@@ -1034,7 +1045,8 @@ function customSheet(roundId) {
 function spadesSheet(roundId) {
   const g = cur();
   const { idx, round, handNo, players, c } = sheetContext(g, roundId);
-  const n = cardsForHand(handNo, players.length);
+  const n = cardsForHand(g, handNo, players.length);
+  const maxBid = Math.max(MAX_BID, topHand(g));
   const scoring = !!round;
   const bids = {}, tricks = {};
   players.forEach(p => {
@@ -1048,9 +1060,9 @@ function spadesSheet(roundId) {
   const inner = `<div>${rows}</div><div class="tally"><span id="t-bids">Bids: <b>0</b></span>${scoring ? `<span id="t-tricks">Won: <b>0</b> of ${n}</span>` : ""}</div>`;
   const sub = scoring
     ? `${n} card${n === 1 ? "" : "s"} each, so ${n} trick${n === 1 ? "" : "s"} to win. Make your bid and get 10 a trick plus 1 per extra. Miss it and lose 10 a trick. Nil scores 1 a trick.`
-    : `${n} card${n === 1 ? "" : "s"} each this hand. Everyone bids 1 to ${MAX_BID}, or 0 to go nil. Enter tricks won after the hand is played.`;
+    : `${n} card${n === 1 ? "" : "s"} each this hand. Everyone bids 1 to ${maxBid}, or 0 to go nil. Enter tricks won after the hand is played.`;
   const pend = round && pendingRound(round);
-  openSheet(sheetFrame(`Hand ${handNo}`, sub, inner, !!round, scoring ? (pend ? "Score hand" : "Save") : "Save bids"), panel => {
+  openSheet(sheetFrame(`Hand ${handNo} <small class="of">of ${totalHands(g)}</small>`, sub, inner, !!round, scoring ? (pend ? "Score hand" : "Save") : "Save bids"), panel => {
     wireFrame(panel, g, idx);
     const saveBtn = panel.querySelector("[data-save]");
     const saveLabel = saveBtn.textContent;
@@ -1073,7 +1085,7 @@ function spadesSheet(roundId) {
         el.textContent = signed(pts); el.className = "res " + (pts < 0 ? "bad" : "good");
       });
     };
-    const clamp = (kind, v) => kind === "bid" ? Math.max(0, Math.min(MAX_BID, v)) : Math.max(0, Math.min(n, v));
+    const clamp = (kind, v) => kind === "bid" ? Math.max(0, Math.min(maxBid, v)) : Math.max(0, Math.min(n, v));
     const store = kind => kind === "bid" ? bids : tricks;
     panel.addEventListener("click", e => {
       const b = e.target.closest("[data-step]"); if (!b) return;
@@ -1106,6 +1118,7 @@ function spadesSheet(roundId) {
         showErr(panel, `Tricks add up to ${won}, but hand ${handNo} has ${n} trick${n === 1 ? "" : "s"}. Check the counts, or tap Score anyway.`); return;
       }
       round.bids = { ...bids }; round.tricks = { ...tricks };
+      if (pend && handNo >= totalHands(g)) g.ended = true;
       const sad = players.some(p => !madeBid(bids[p.id], tricks[p.id]));
       afterSave(g, false, `Hand ${handNo} ${pend ? "scored" : "updated"}`, sad ? "sad" : "");
     };
@@ -1252,10 +1265,14 @@ const readPlayers = panel => [...panel.querySelectorAll(".plist .p")].map((row, 
 }));
 
 function rulesFields(type, rules) {
+  const top = rules.top || DEFAULT_TOP;
   return `<div class="seg" id="winrule">
       <button type="button" data-low="0" aria-pressed="${!rules.lowWins}">Highest total wins</button>
-      <button type="button" data-low="1" aria-pressed="${!!rules.lowWins}">Lowest total wins</button></div>`;
+      <button type="button" data-low="1" aria-pressed="${!!rules.lowWins}">Lowest total wins</button></div>
+    ${type === "spades" ? `<div class="top-pick"><span class="tp-label">Most cards in a hand<small id="tp-sum">${topSummary(top)}</small></span>
+      <div class="step"><button type="button" data-top="-1" aria-label="Fewer cards">−</button><input id="tp" value="${top}" readonly aria-label="Most cards in a hand"><button type="button" data-top="1" aria-label="More cards">+</button></div></div>` : ""}`;
 }
+const topSummary = t => `1 up to ${t}, ${t} twice, back down to 1. ${t * 2} hands.`;
 function wireRules(panel, type, rules) {
   const wr = panel.querySelector("#winrule");
   if (wr) wr.addEventListener("click", e => {
@@ -1263,8 +1280,16 @@ function wireRules(panel, type, rules) {
     rules.lowWins = b.dataset.low === "1";
     wr.querySelectorAll("[data-low]").forEach(x => x.setAttribute("aria-pressed", (x.dataset.low === "1") === rules.lowWins));
   });
+  const tp = panel.querySelector(".top-pick");
+  if (tp) tp.addEventListener("click", e => {
+    const b = e.target.closest("[data-top]"); if (!b) return;
+    rules.top = Math.max(1, Math.min(13, (rules.top || DEFAULT_TOP) + Number(b.dataset.top)));
+    tp.querySelector("#tp").value = rules.top;
+    tp.querySelector("#tp-sum").textContent = topSummary(rules.top);
+    sound.play("tap");
+  });
 }
-function readRules(panel, type, rules) { return { lowWins: !!rules.lowWins }; }
+function readRules(panel, type, rules) { return type === "spades" ? { lowWins: !!rules.lowWins, top: rules.top || DEFAULT_TOP } : { lowWins: !!rules.lowWins }; }
 function newGameSheet(fromGame) {
   if (blockIfReadOnly()) return;
   const last = fromGame || state.games.find(g => !g.example) || null;
