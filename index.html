@@ -304,6 +304,9 @@ select.text option { background: var(--paper); color: var(--ink); }
 .av { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 17px; line-height: 1; flex: none; background: var(--av, #2b3d33); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); }
 .av.lg { width: 40px; height: 40px; font-size: 22px; }
 .av.sm { width: 22px; height: 22px; font-size: 13px; }
+.av.photo { background: #1a2a23 center / cover no-repeat; box-shadow: inset 0 0 0 1.5px rgb(240 208 138 / .55); }
+.cam-btn svg { width: 18px; height: 18px; }
+.icon-btn.cam-btn:hover { color: var(--gold); border-color: var(--felt); transform: scale(1.06); }
 button.av { border: 0; cursor: pointer; transition: transform .3s var(--spring); }
 button.av:hover { transform: scale(1.15) rotate(-8deg); }
 .stand { grid-template-columns: auto 1fr auto; }
@@ -440,6 +443,7 @@ const ICON = {
   leave: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 11h6"/></svg>',
   soundOn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>',
   soundOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5zM22 9l-6 6M16 9l6 6"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>',
 };
 
@@ -789,7 +793,48 @@ function toast(msg) {
   t.style.animation = "none"; void t.offsetWidth; t.style.animation = "";
   clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2400);
 }
-const avatar = (p, cls = "") => `<span class="av ${cls}" style="--av:${p.color || "#2b3d33"}" aria-hidden="true">${p.avatar || "🃏"}</span>`;
+const photoStyle = url => url ? `background-image:url('${url}');` : "";
+const avatar = (p, cls = "") => p.photo
+  ? `<span class="av photo ${cls}" style="${photoStyle(p.photo)}" aria-hidden="true"></span>`
+  : `<span class="av ${cls}" style="--av:${p.color || "#2b3d33"}" aria-hidden="true">${p.avatar || "🃏"}</span>`;
+
+/* ---------- Player photos ---------- */
+// Opens the phone's camera (or photo picker on a computer), then crops the shot to a small square
+// so it stays light enough to save and sync with the game.
+const PHOTO_PX = 128;
+function takePhoto() {
+  return new Promise(resolve => {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*"; input.setAttribute("capture", "environment");
+    input.style.cssText = "position:fixed;left:-999px;opacity:0";
+    document.body.appendChild(input);
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      input.remove();
+      if (!file) return resolve(null);
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const cv = document.createElement("canvas"); cv.width = cv.height = PHOTO_PX;
+        cv.getContext("2d").drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, PHOTO_PX, PHOTO_PX);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL("image/jpeg", 0.78));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); toast("Couldn't read that photo. Try another."); resolve(null); };
+      img.src = url;
+    }, { once: true });
+    input.click();
+  });
+}
+// An avatar button that shows a photo when there is one, or the animal otherwise.
+function paintAvatarButton(btn, photo, emoji) {
+  btn.dataset.photo = photo || "";
+  btn.classList.toggle("photo", !!photo);
+  btn.style.backgroundImage = photo ? `url('${photo}')` : "";
+  btn.textContent = photo ? "" : emoji;
+  if (!photo) btn.dataset.emoji = emoji;
+}
 
 /* ================= Main view ================= */
 const view = { first: true, gameId: null, totals: {}, rowCount: 0, leader: null, winKey: null };
@@ -1145,20 +1190,22 @@ function joinSheet() {
   openSheet(`
     <h2>Someone's joining</h2>
     <p class="sub">They'll play from the next ${g.type === "rummy" ? "deal" : "hand"} on.</p>
-    <div class="field"><span>Name</span><div style="display:flex;gap:8px;align-items:center"><button type="button" class="av lg" id="j-av" style="--av:${AV_COLORS[0]}" aria-label="Change avatar">${av}</button><input class="text" id="j-name" placeholder="Their name" autocomplete="off"></div></div>
+    <div class="field"><span>Name</span><div style="display:flex;gap:8px;align-items:center"><button type="button" class="av lg" id="j-av" data-emoji="${av}" style="--av:${AV_COLORS[0]}" aria-label="Change avatar">${av}</button><button type="button" class="icon-btn cam-btn" id="j-cam" aria-label="Take a photo">${ICON.camera}</button><input class="text" id="j-name" placeholder="Their name" autocomplete="off"></div></div>
     <div class="field"><span>Starting score</span><div class="radio-list">${opts.map(([k, l, v, h], i) => `<label><input type="radio" name="start" value="${k}" ${i === 0 ? "checked" : ""}><span class="rl-text">${l}<small>${h}</small></span><b>${fmt(v)}</b></label>`).join("")}</div></div>
     <p class="err" id="err" hidden></p>
     <div class="panel-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-save>Deal them in</button></div>
   `, panel => {
     const avBtn = panel.querySelector("#j-av");
-    avBtn.addEventListener("click", () => { av = AVATARS[(AVATARS.indexOf(av) + 1) % AVATARS.length]; avBtn.textContent = av; sound.play("tap"); });
+    let photo = null;
+    avBtn.addEventListener("click", () => { av = AVATARS[(AVATARS.indexOf(av) + 1) % AVATARS.length]; photo = null; paintAvatarButton(avBtn, null, av); sound.play("tap"); });
+    panel.querySelector("#j-cam").addEventListener("click", () => takePhoto().then(url => { if (url) { photo = url; paintAvatarButton(avBtn, url, av); sound.play("chip"); } }));
     panel.querySelector("[data-close]").addEventListener("click", closeSheet);
     panel.querySelector("[data-save]").addEventListener("click", () => {
       const name = panel.querySelector("#j-name").value.trim();
       if (!name) { showErr(panel, "Give the new player a name."); return; }
       const k = panel.querySelector('input[name="start"]:checked').value;
       const start = k === "worst" ? worst : k === "avg" ? avg : 0;
-      const p = { ...newPlayer(name, g.players.length), avatar: av };
+      const p = { ...newPlayer(name, g.players.length), avatar: av, ...(photo ? { photo } : {}) };
       const row = { id: uid(), kind: "adjust", join: p.id, scores: { [p.id]: start }, labels: { [p.id]: "joined" }, note: `${name} joined at ${fmt(start)}` };
       p.joinRow = row.id;
       g.players.push(p); g.rounds.push(row);
@@ -1241,7 +1288,7 @@ function adjustSheet(rowId) {
 
 /* ---------- New game, settings ---------- */
 function playerRows(players) {
-  return players.map((p, i) => `<div class="p" data-id="${p.id || ""}"><span class="seat">${i + 1}</span><button type="button" class="av" data-av style="--av:${p.color || AV_COLORS[i % AV_COLORS.length]}" aria-label="Change avatar">${p.avatar || AVATARS[i % AVATARS.length]}</button><input class="text" id="pn-${p.id || uid()}" data-pname value="${esc(p.name)}" placeholder="Player ${i + 1}" aria-label="Player ${i + 1} name">${p.locked ? "" : `<button class="icon-btn" type="button" data-rm aria-label="Remove player">${ICON.x}</button>`}</div>`).join("");
+  return players.map((p, i) => `<div class="p" data-id="${p.id || ""}"><span class="seat">${i + 1}</span><button type="button" class="av ${p.photo ? "photo" : ""}" data-av data-photo="${p.photo || ""}" data-emoji="${p.avatar || AVATARS[i % AVATARS.length]}" style="--av:${p.color || AV_COLORS[i % AV_COLORS.length]};${photoStyle(p.photo)}" aria-label="Change avatar">${p.photo ? "" : p.avatar || AVATARS[i % AVATARS.length]}</button><button type="button" class="icon-btn cam-btn" data-cam aria-label="Take a photo">${ICON.camera}</button><input class="text" id="pn-${p.id || uid()}" data-pname value="${esc(p.name)}" placeholder="Player ${i + 1}" aria-label="Player ${i + 1} name">${p.locked ? "" : `<button class="icon-btn" type="button" data-rm aria-label="Remove player">${ICON.x}</button>`}</div>`).join("");
 }
 function wirePlayerList(panel) {
   const list = panel.querySelector(".plist");
@@ -1250,7 +1297,10 @@ function wirePlayerList(panel) {
     const rm = e.target.closest("[data-rm]");
     if (rm && list.children.length > 1) { rm.parentElement.remove(); renumber(); return; }
     const avb = e.target.closest("[data-av]");
-    if (avb) { avb.textContent = AVATARS[(AVATARS.indexOf(avb.textContent) + 1) % AVATARS.length]; sound.play("tap"); }
+    // Tapping the face swaps to the next animal (and drops any photo).
+    if (avb) { paintAvatarButton(avb, null, AVATARS[(AVATARS.indexOf(avb.dataset.emoji) + 1) % AVATARS.length]); sound.play("tap"); return; }
+    const cam = e.target.closest("[data-cam]");
+    if (cam) takePhoto().then(url => { if (url) { paintAvatarButton(cam.previousElementSibling, url, cam.previousElementSibling.dataset.emoji); sound.play("chip"); } });
   });
   const add = panel.querySelector("[data-addp]");
   if (add) add.addEventListener("click", () => {
@@ -1261,7 +1311,7 @@ function wirePlayerList(panel) {
 }
 const readPlayers = panel => [...panel.querySelectorAll(".plist .p")].map((row, i) => ({
   id: row.dataset.id || null, name: row.querySelector("input").value.trim() || `Player ${i + 1}`,
-  avatar: row.querySelector("[data-av]").textContent, color: row.querySelector("[data-av]").style.getPropertyValue("--av") || AV_COLORS[i % AV_COLORS.length],
+  avatar: row.querySelector("[data-av]").dataset.emoji, photo: row.querySelector("[data-av]").dataset.photo || null, color: row.querySelector("[data-av]").style.getPropertyValue("--av") || AV_COLORS[i % AV_COLORS.length],
 }));
 
 function rulesFields(type, rules) {
@@ -1295,12 +1345,12 @@ function newGameSheet(fromGame) {
   const last = fromGame || state.games.find(g => !g.example) || null;
   let type = fromGame ? fromGame.type : (last ? last.type : "spades");
   let rules = fromGame ? { ...fromGame.rules } : { lowWins: TYPES[type].lowWins };
-  const players = last ? activePlayers(last).map(p => ({ name: p.name, avatar: p.avatar, color: p.color })) : ["", "", "", ""].map((n, i) => ({ name: n, avatar: AVATARS[i * 5 % AVATARS.length], color: AV_COLORS[i % AV_COLORS.length] }));
+  const players = last ? activePlayers(last).map(p => ({ name: p.name, avatar: p.avatar, color: p.color, photo: p.photo || null })) : ["", "", "", ""].map((n, i) => ({ name: n, avatar: AVATARS[i * 5 % AVATARS.length], color: AV_COLORS[i % AV_COLORS.length] }));
   openSheet(`
     <h2>${fromGame ? "Rematch" : "New game"}</h2>
     <div class="field"><span>Game</span><div class="types" id="types">${Object.entries(TYPES).map(([k, T]) => `<button type="button" data-type="${k}" aria-pressed="${k === type}"><span class="suit">${T.suit}</span><strong>${T.name}</strong><span>${T.blurb}</span></button>`).join("")}</div></div>
     <label class="field"><span>Name</span><input class="text" id="gname" placeholder="${TYPES[type].name}" value="${fromGame ? esc(fromGame.name) : ""}"></label>
-    <div class="field"><span>Players (tap an avatar to change it)</span><div class="plist">${playerRows(players)}</div>
+    <div class="field"><span>Players (tap the camera for a photo)</span><div class="plist">${playerRows(players)}</div>
       <button class="btn" type="button" data-addp style="align-self:flex-start">${ICON.plus}Add player</button></div>
     <div class="field"><span>Who wins</span><div id="opts">${rulesFields(type, rules)}</div></div>
     <div class="panel-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-start>Deal 'em</button></div>
@@ -1318,7 +1368,7 @@ function newGameSheet(fromGame) {
     });
     panel.querySelector("[data-close]").addEventListener("click", closeSheet);
     panel.querySelector("[data-start]").addEventListener("click", () => {
-      const ps = readPlayers(panel).map(p => ({ id: uid(), name: p.name, avatar: p.avatar, color: p.color }));
+      const ps = readPlayers(panel).map(p => ({ id: uid(), name: p.name, avatar: p.avatar, color: p.color, ...(p.photo ? { photo: p.photo } : {}) }));
       if (ps.length < 2) { toast("Add at least two players."); return; }
       const g = { id: uid(), v: 4, type, name: nameInput.value.trim() || TYPES[type].name, rules: readRules(panel, type, rules), tone: fromGame?.tone || "savage", created: Date.now(), players: ps, rounds: [] };
       const ex = state.games.filter(x => x.example);
@@ -1344,7 +1394,7 @@ function settingsSheet() {
     <label class="field"><span>Game name</span><input class="text" id="gname" value="${esc(g.name)}"></label>
     <div class="field"><span>Players</span>
       <div class="plist">${playerRows(g.players.map(p => ({ ...p, locked: started })))}</div>
-      ${started ? `<p class="hint">Rename players or tap an avatar here. Use "Someone's joining" or "Someone's leaving" to change who's playing.</p>` : `<button class="btn" type="button" data-addp style="align-self:flex-start">${ICON.plus}Add player</button>`}</div>
+      ${started ? `<p class="hint">Rename players, tap the camera to add a photo, or tap a face to switch animals. Use "Someone's joining" or "Someone's leaving" to change who's playing.</p>` : `<button class="btn" type="button" data-addp style="align-self:flex-start">${ICON.plus}Add player</button>`}</div>
     <div class="field"><span>Who wins</span>${rulesFields(g.type, rules)}</div>
     <div class="panel-actions">
       <button class="btn left" data-end>${g.ended ? "Resume game" : "End game"}</button>
@@ -1365,6 +1415,7 @@ function settingsSheet() {
       g.players = rows.map(r => {
         const old = g.players.find(p => p.id === r.id);
         const p = old ? { ...old, name: r.name, avatar: r.avatar } : { ...newPlayer(r.name, 0), avatar: r.avatar };
+        if (r.photo) p.photo = r.photo; else delete p.photo;
         keep.add(p.id); return p;
       });
       g.rounds.forEach(r => ["scores", "bids", "tricks", "res", "labels"].forEach(k => { if (r[k]) Object.keys(r[k]).forEach(pid => { if (!keep.has(pid)) delete r[k][pid]; }); }));
@@ -1418,7 +1469,7 @@ function hallOfFame() {
   const S = cur().tone !== "clean";
   const people = {};
   const key = n => n.trim().toLowerCase();
-  const get = p => people[key(p.name)] ||= { name: p.name, avatar: p.avatar, color: p.color, games: 0, wins: 0, hands: 0, handWins: 0, best: null, worst: null, streak: 0 };
+  const get = p => { const s = people[key(p.name)] ||= { name: p.name, avatar: p.avatar, color: p.color, photo: null, games: 0, wins: 0, hands: 0, handWins: 0, best: null, worst: null, streak: 0 }; if (p.photo) s.photo = p.photo; return s; };
   const real = state.games.filter(g => !g.example);
   real.forEach(g => {
     const c = compute(g), w = winner(g, c), lw = lowWins(g);
