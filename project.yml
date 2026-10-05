@@ -34,6 +34,8 @@ targets:
         UIStatusBarStyle: UIStatusBarStyleLightContent
         UIViewControllerBasedStatusBarAppearance: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSCameraUsageDescription: "Scorepad uses the camera to take a photo of each player for their profile."
+        NSPhotoLibraryUsageDescription: "Scorepad lets you pick a player's profile photo from your library."
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
     settings:
